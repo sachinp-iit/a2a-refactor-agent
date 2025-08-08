@@ -71,16 +71,3 @@ You will be prompted to:
 3. Optionally commit changes.
 
 ---
-
-## License
-This project is licensed under the **Creative Commons Attribution-NonCommercial 4.0 International License** — see the [LICENSE](LICENSE) file for details.
-
----
-
-## Educational Use
-This project is intended for:
-- AI agent orchestration training  
-- Multi-agent communication examples  
-- Code analysis & refactoring demos  
-
-**Commercial use is prohibited**.
