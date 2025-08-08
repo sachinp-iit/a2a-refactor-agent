@@ -1,4 +1,4 @@
-# Program 34: C# Auto-Refactor Agent (Multi-Agent + Approval Loop)
+# C# Auto-Refactor Agent (Multi-Agent + Approval Loop)
 
 ## Overview
 This project is a **multi-agent C# Auto-Refactor Agent** that:
