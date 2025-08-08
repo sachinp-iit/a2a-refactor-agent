@@ -48,7 +48,7 @@ a2a_refactor_agent/
 ## Installation
 1. **Clone this repository**
    ```bash
-   git clone https://github.com/YOUR_USERNAME/a2a_refactor_agent.git
+   git clone https://github.com/sachinp-iit/a2a-refactor-agent.git
    cd a2a_refactor_agent
    ```
 
