@@ -1,115 +1,58 @@
-#!/usr/bin/env python3
-"""
-main.py - Orchestrator for C# Auto-Refactor Agent (multi-agent local simulator)
+import os
+from agents.repo_clone_agent import RepoCloneAgent
+from agents.roslynator_agent import RoslynatorAgent
+from agents.chroma_agent import ChromaAgent
+from agents.query_agent import QueryAgent
+from agents.refactor_agent import RefactorAgent
+from agents.approval_agent import ApprovalAgent
 
-Flow (local/A2A-ready simulation):
-  1. Repo Manager -> clones repo, returns repo_path + cs_files
-  2. Analyzer -> runs Roslynator (or simulated analysis), returns issues artifact
-  3. Approval -> interactive loop: for each issue ask user Approve/Skip.
-       - If Approved: call Refactor agent to produce fixed code artifact
-       - Approval agent applies the returned fix into working tree (simulated)
-  4. Commit -> if any changes, ask user to commit & push
+def main():
+    # === Step 1: Clone GitHub Repo ===
+    repo_url = input("Enter the GitHub repo URL to clone: ").strip()
+    repo_clone_agent = RepoCloneAgent()
+    repo_path = repo_clone_agent.clone_repo(repo_url)
 
-Agent contract:
-  Each agent is expected to expose: handle_task(payload: dict) -> dict
-"""
-
-import sys
-import argparse
-from typing import Callable
-
-# --- Safe imports for agents (will raise friendly message if file not present) ---
-def import_agent(module_path: str, module_alias: str):
-    try:
-        module = __import__(module_path, fromlist=['handle_task'])
-        if not hasattr(module, 'handle_task'):
-            raise ImportError(f"Module '{module_path}' missing required 'handle_task' function.")
-        return module
-    except Exception as e:
-        print(f"[ERROR] Could not import {module_alias} ('{module_path}').\n  -> {e}")
-        print("  Make sure the file exists and defines `def handle_task(payload: dict) -> dict`.")
-        sys.exit(1)
-
-repo_manager = import_agent('agents.repo_manager', 'Repo Manager')
-analyzer = import_agent('agents.analyzer', 'Analyzer')
-refactor = import_agent('agents.refactor', 'Refactor')
-approval = import_agent('agents.approval', 'Approval')
-commit_agent = import_agent('agents.commit', 'Commit')
-
-# --- Orchestrator functions ---
-
-def run_pipeline(repo_url: str):
-    print(f"\n[Orchestrator] Starting pipeline for repo: {repo_url}\n")
-
-    # 1) Repo Manager
-    print("[Orchestrator] Calling Repo Manager...")
-    repo_payload = {"repo_url": repo_url}
-    repo_result = repo_manager.handle_task(repo_payload)
-    repo_output = repo_result.get("output", {})
-    repo_path = repo_output.get("repo_path")
-    cs_files = repo_output.get("cs_files", [])
-    print(f"[Orchestrator] Repo at: {repo_path}, C# files found: {len(cs_files)}")
-
+    # Extract C# files
+    cs_files = repo_clone_agent.extract_cs_files(repo_path)
     if not cs_files:
-        print("[Orchestrator] No .cs files found. Exiting.")
+        print("No C# files found in the repository.")
         return
 
-    # 2) Analyzer
-    print("\n[Orchestrator] Calling Analyzer (Roslynator)...")
-    analyze_payload = {"repo_path": repo_path, "cs_files": cs_files}
-    analysis_result = analyzer.handle_task(analyze_payload)
-    issues = analysis_result.get("output", {}).get("issues", [])
-    print(f"[Orchestrator] Analyzer returned {len(issues)} issue(s).")
+    # === Step 2: Run Roslynator Analysis ===
+    roslynator_agent = RoslynatorAgent()
+    analysis_results = roslynator_agent.run_analysis(cs_files)
 
-    if not issues:
-        print("[Orchestrator] No issues found. Nothing to do.")
-        return
+    # === Step 3: Store in ChromaDB ===
+    chroma_agent = ChromaAgent()
+    chroma_agent.add_documents(analysis_results)
 
-    # 3) Approval loop
-    print("\n[Orchestrator] Entering Approval loop...")
-    # Approval agent should accept (analysis_result, refactor_callable) or similar contract.
-    # We'll pass the analysis_result and a callable wrapper to call the refactor agent.
-    def refactor_call(payload: dict) -> dict:
-        """Wrapper to call the refactor agent; keeps contract simple."""
-        return refactor.handle_task(payload)
+    # === Step 4: Query Code Issues ===
+    query_agent = QueryAgent(chroma_agent)
+    query_text = input("Enter a search query for issues (or press Enter to skip): ").strip()
+    if query_text:
+        matches = query_agent.query_issues(query_text)
+        print("\nQuery Results:")
+        for m in matches:
+            print(m)
 
-    approval_payload = {"analysis": analysis_result, "repo_path": repo_path}
-    # The approval agent is expected to call refactor_call when user approves a fix,
-    # apply the returned fix to the working files and return a summary payload.
-    approval_result = approval.handle_task({"analysis": analysis_result, "repo_path": repo_path, "refactor_callable": refactor_call})
-    approval_output = approval_result.get("output", {})
-    changes_applied = approval_output.get("changes_applied", False)
-    changed_files = approval_output.get("changed_files", [])
+    # === Step 5 & 6: Auto-refactor with Approval Loop ===
+    refactor_agent = RefactorAgent()
+    approval_agent = ApprovalAgent()
 
-    print(f"[Orchestrator] Approval complete. Changes applied: {changes_applied}. Files changed: {len(changed_files)}")
+    for issue in analysis_results:
+        issue_id = issue.get("id", "N/A")
+        description = issue.get("description", "")
+        file_path = issue.get("file_path", "")
 
-    # 4) Commit step
-    if changes_applied:
-        print("\n[Orchestrator] Calling Commit agent...")
-        commit_payload = {"repo_path": repo_path, "changed_files": changed_files}
-        commit_result = commit_agent.handle_task(commit_payload)
-        print(f"[Orchestrator] Commit agent result: {commit_result.get('status')}")
-    else:
-        print("[Orchestrator] No changes to commit.")
+        proposed_fix = refactor_agent.propose_fix(file_path, description)
 
-    print("\n[Orchestrator] Pipeline finished.\n")
+        if approval_agent.request_approval(issue_id, description, proposed_fix):
+            refactor_agent.apply_fix_to_file(file_path, proposed_fix)
+            print(f"[FIXED] {file_path}")
+        else:
+            print(f"[SKIPPED] {file_path}")
 
-
-# --- CLI ---
-def parse_args():
-    parser = argparse.ArgumentParser(description="Run Program 34 multi-agent refactor pipeline (local simulation).")
-    parser.add_argument("--repo", "-r", type=str, help="GitHub repo URL to analyze (e.g., https://github.com/owner/repo.git)")
-    return parser.parse_args()
+    print("\n=== Process Completed ===")
 
 if __name__ == "__main__":
-    args = parse_args()
-    if not args.repo:
-        repo_url = input("Enter GitHub repo URL to clone and analyze: ").strip()
-    else:
-        repo_url = args.repo.strip()
-
-    if not repo_url:
-        print("No repository URL supplied. Exiting.")
-        sys.exit(1)
-
-    run_pipeline(repo_url)
+    main()
