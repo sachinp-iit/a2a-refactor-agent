@@ -12,6 +12,36 @@ from agents.refactor_agent import RefactorAgent
 from agents.approval_agent import ApprovalAgent
 
 
+def ensure_roslynator_installed():
+    """
+    Ensures that Roslynator CLI is installed and available in PATH.
+    If missing, installs it using the provided shell script.
+    """
+    if shutil.which("roslynator"):
+        print("[Main] Roslynator CLI is already installed.")
+        return
+
+    print("[Main] Roslynator CLI not found. Installing...")
+    if not os.path.exists("install_dotnet_roslynator.sh"):
+        print("[Main] ERROR: install_dotnet_roslynator.sh not found.")
+        return
+
+    subprocess.run(["bash", "install_dotnet_roslynator.sh"], check=True)
+
+    dotnet_root = os.path.expanduser("~/.dotnet")
+    dotnet_tools = os.path.expanduser("~/.dotnet/tools")
+
+    # Only add if not already in PATH
+    path_parts = os.environ["PATH"].split(":")
+    if dotnet_root not in path_parts:
+        os.environ["PATH"] += f":{dotnet_root}"
+    if dotnet_tools not in path_parts:
+        os.environ["PATH"] += f":{dotnet_tools}"
+
+    os.environ["DOTNET_ROOT"] = dotnet_root
+    print("[Main] Roslynator CLI installation complete.")
+
+
 def clone_and_analyze(repo_manager):
     repo_url = input("Enter the GitHub repo URL to clone: ").strip()
     if not repo_url:
@@ -24,15 +54,7 @@ def clone_and_analyze(repo_manager):
         print("No C# files found in the repository.")
         return repo_path, None, None
 
-    # Auto-install Roslynator if missing
-    if not shutil.which("roslynator"):
-        print("[Main] Roslynator CLI not found. Installing...")
-        if not os.path.exists("install_dotnet_roslynator.sh"):
-            print("[Main] ERROR: install_dotnet_roslynator.sh not found.")
-            return repo_path, None, None
-        subprocess.run(["bash", "install_dotnet_roslynator.sh"], check=True)
-        os.environ["DOTNET_ROOT"] = os.path.expanduser("~/.dotnet")
-        os.environ["PATH"] += ":" + os.path.expanduser("~/.dotnet") + ":" + os.path.expanduser("~/.dotnet/tools")
+    ensure_roslynator_installed()
 
     roslynator_agent = RoslynatorAgent(repo_path=repo_path, output_dir=os.path.join(repo_path, "analysis"))
     json_report_path = roslynator_agent.run_analysis()
