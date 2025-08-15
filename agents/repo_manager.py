@@ -1,5 +1,5 @@
 import os
-import git
+import subprocess
 
 class RepoManager:
     def __init__(self, base_path="workspace"):
@@ -14,10 +14,9 @@ class RepoManager:
         """
         token = os.environ.get("GITHUB_TOKEN")
         
-        # Inject token for private repos
+        # Inject token if available and repo is from GitHub
         if token and repo_url.startswith("https://github.com/"):
-            # Avoid leaking token in printed logs
-            safe_url = repo_url
+            safe_url = repo_url  # for logging without token
             repo_url = repo_url.replace(
                 "https://github.com/",
                 f"https://{token}@github.com/"
@@ -32,7 +31,7 @@ class RepoManager:
         if os.path.exists(repo_path):
             print(f"[RepoManager] Repo already exists at {repo_path}")
         else:
-            git.Repo.clone_from(repo_url, repo_path)
+            subprocess.run(["git", "clone", repo_url, repo_path], check=True)
 
         return repo_path
 
