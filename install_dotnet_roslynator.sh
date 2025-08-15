@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+# Ensure PATH is set before checking
+export DOTNET_ROOT=$HOME/.dotnet
+export PATH=$PATH:$HOME/.dotnet:$HOME/.dotnet/tools
+
 # Install .NET SDK only if not present
 if ! command -v dotnet &> /dev/null; then
     echo "Installing .NET 8 SDK..."
@@ -8,7 +12,7 @@ if ! command -v dotnet &> /dev/null; then
     chmod +x dotnet-install.sh
     ./dotnet-install.sh --version 8.0.100
 else
-    echo ".NET already installed."
+    echo ".NET already installed: $(dotnet --version)"
 fi
 
 # Install Roslynator only if not present
@@ -16,12 +20,8 @@ if ! command -v roslynator &> /dev/null; then
     echo "Installing Roslynator..."
     ~/.dotnet/dotnet tool install -g Roslynator.DotNet.Cli
 else
-    echo "Roslynator already installed."
+    echo "Roslynator already installed: $(roslynator --version)"
 fi
-
-# Update PATH
-export DOTNET_ROOT=$HOME/.dotnet
-export PATH=$PATH:$HOME/.dotnet:$HOME/.dotnet/tools
 
 # Verify
 dotnet --version
