@@ -33,12 +33,15 @@ a2a_refactor_agent/
 ├── LICENSE
 ├── README.md
 ├── requirements.txt
+├── install_dotnet_roslynator.sh
 │
 ├── agents/
-│   ├── repo_manager.py
-│   ├── analyzer.py
+│   ├── approval.py
+│   ├── embedding_agent.py
+│   ├── query_agent.py
 │   ├── refactor.py
-│   └── approval.py
+│   ├── repo_manager.py
+│   └── roslynator_agent.py
 │
 └── main.py
 ```
