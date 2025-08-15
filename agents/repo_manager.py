@@ -20,7 +20,7 @@ class RepoManager:
             return repo_path
 
         if token and repo_url.startswith("https://github.com/"):
-            safe_url = repo_url  # for logging without token
+            safe_url = repo_url  # for logging
             clone_url = repo_url.replace("https://", f"https://{token}@")
             print(f"[RepoManager] Cloning (with token) {safe_url}...")
         else:
