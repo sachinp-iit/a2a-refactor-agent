@@ -2,25 +2,30 @@ import os
 import subprocess
 
 class RepoManager:
-    def __init__(self, github_repo_url=None, github_pat=None):
-        self.github_repo_url = github_repo_url
-        self.github_pat = github_pat
+    def __init__(self, base_path="workspace"):
+        self.base_path = base_path
+        os.makedirs(self.base_path, exist_ok=True)
 
-    def clone_private_repo(self):
+    def clone_repo(self, repo_url):
         """
-        Clone a private GitHub repo using a Personal Access Token (PAT).
+        Clone a GitHub repo into base_path.
+        Supports private repos via GITHUB_TOKEN env var.
         """
-        if not self.github_repo_url or not self.github_pat:
-            raise ValueError("GitHub repo URL and PAT must be provided.")
-
-        repo_name = self.github_repo_url.rstrip("/").split("/")[-1].replace(".git", "")
-        repo_path = os.path.join("/content", repo_name)
+        token = os.environ.get("GITHUB_TOKEN", "")
+        repo_name = repo_url.rstrip("/").split("/")[-1].replace(".git", "")
+        repo_path = os.path.join(self.base_path, repo_name)
 
         if os.path.exists(repo_path):
-            print(f"Repo already exists at: {repo_path}")
+            print(f"[RepoManager] Repo already exists at: {repo_path}")
             return repo_path
 
-        safe_url = self.github_repo_url.replace("https://", f"https://{self.github_pat}@")
+        if token and repo_url.startswith("https://github.com/"):
+            safe_url = repo_url  # for logging without token
+            clone_url = repo_url.replace("https://", f"https://{token}@")
+            print(f"[RepoManager] Cloning (with token) {safe_url}...")
+        else:
+            clone_url = repo_url
+            print(f"[RepoManager] Cloning {repo_url}...")
 
         env = os.environ.copy()
         env["GIT_ASKPASS"] = "echo"
@@ -28,15 +33,15 @@ class RepoManager:
 
         try:
             subprocess.run(
-                ["git", "clone", safe_url, repo_path],
+                ["git", "clone", clone_url, repo_path],
                 check=True,
                 capture_output=True,
                 text=True,
                 env=env
             )
-            print(f"Successfully cloned to: {repo_path}")
+            print(f"[RepoManager] Successfully cloned to: {repo_path}")
         except subprocess.CalledProcessError as e:
-            print("Git clone failed.")
+            print("[RepoManager] Git clone failed.")
             print("STDOUT:\n", e.stdout)
             print("STDERR:\n", e.stderr)
             raise
