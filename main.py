@@ -1,6 +1,8 @@
 import os
 import sys
 import json
+import shutil
+import subprocess
 
 from agents.repo_manager import RepoManager
 from agents.roslynator_agent import RoslynatorAgent
@@ -8,6 +10,7 @@ from agents.embedding_agent import EmbeddingAgent
 from agents.query_agent import QueryAgent
 from agents.refactor_agent import RefactorAgent
 from agents.approval_agent import ApprovalAgent
+
 
 def clone_and_analyze(repo_manager):
     repo_url = input("Enter the GitHub repo URL to clone: ").strip()
@@ -21,6 +24,16 @@ def clone_and_analyze(repo_manager):
         print("No C# files found in the repository.")
         return repo_path, None, None
 
+    # Auto-install Roslynator if missing
+    if not shutil.which("roslynator"):
+        print("[Main] Roslynator CLI not found. Installing...")
+        if not os.path.exists("install_dotnet_roslynator.sh"):
+            print("[Main] ERROR: install_dotnet_roslynator.sh not found.")
+            return repo_path, None, None
+        subprocess.run(["bash", "install_dotnet_roslynator.sh"], check=True)
+        os.environ["DOTNET_ROOT"] = os.path.expanduser("~/.dotnet")
+        os.environ["PATH"] += ":" + os.path.expanduser("~/.dotnet") + ":" + os.path.expanduser("~/.dotnet/tools")
+
     roslynator_agent = RoslynatorAgent(repo_path=repo_path, output_dir=os.path.join(repo_path, "analysis"))
     json_report_path = roslynator_agent.run_analysis()
     if not json_report_path:
@@ -32,6 +45,7 @@ def clone_and_analyze(repo_manager):
 
     print("Clone and analysis complete.")
     return repo_path, json_report_path, embedding_agent.db_dir
+
 
 def query_issues(query_agent):
     query_text = input("Enter your search query (or blank to cancel): ").strip()
@@ -45,6 +59,7 @@ def query_issues(query_agent):
     print(f"\nTop {len(results)} matching issues:")
     for i, res in enumerate(results, 1):
         print(f"{i}. File: {res['file']}\n   Issue: {res['issue']}\n")
+
 
 def approval_and_refactor_loop(json_report_path):
     if not json_report_path or not os.path.exists(json_report_path):
@@ -72,6 +87,7 @@ def approval_and_refactor_loop(json_report_path):
             print(f"[APPLIED] Fix applied to {file_path}")
         else:
             print(f"[SKIPPED] Fix skipped for {file_path}")
+
 
 def main_menu():
     repo_manager = RepoManager()
