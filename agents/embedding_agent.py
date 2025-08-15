@@ -10,10 +10,10 @@ class EmbeddingAgent:
         self.db_dir = Path(db_dir)
         self.collection_name = collection_name
 
-        self.client = Client(Settings(
-            persist_directory=str(self.db_dir)
-        ))
+        # Initialize Chroma client
+        self.chroma_client = Client(Settings(persist_directory=str(self.db_dir)))
 
+        # Initialize OpenAI client
         self.openai_client = OpenAI()
 
     def store_embeddings(self):
@@ -28,17 +28,48 @@ class EmbeddingAgent:
             print("[EmbeddingAgent] No issues to embed.")
             return
 
-        collection = self.client.get_or_create_collection(self.collection_name)
+        # Prepare embeddings list first
+        embeddings = []
+        for idx, issue in enumerate(issues):
+            try:
+                document_text = (
+                    f"This is a code analysis issue with ID {issue.get('id', 'N/A')}. "
+                    f"It occurs in the file {issue.get('file', 'unknown')} on line {issue.get('line', 'N/A')}. "
+                    f"The severity of the issue is {issue.get('severity', 'unknown')}. "
+                    f"The message describing the issue is: {issue.get('message', '')}. "
+                    f"This might relate to C# compiler warnings or best practices violations."
+                ).lower()
+                embedding = self._get_embedding(document_text)
+                embeddings.append(embedding)
+            except Exception as e:
+                print(f"[EmbeddingAgent] Failed to generate embedding for issue {idx}: {e}")
+                embeddings.append([0.0] * 1536)  # fallback dummy embedding
 
-        for idx, item in enumerate(issues):
-            text = f"File: {item['file']}\nIssue: {item['issue']}"
-            embedding = self._get_embedding(text)
+        # Store in ChromaDB exactly like your earlier function
+        collection = self.chroma_client.get_or_create_collection(name=self.collection_name)
+
+        for i, issue in enumerate(issues):
+            metadata = {
+                "file": issue.get("file", ""),
+                "id": issue.get("id", ""),
+                "severity": issue.get("severity", ""),
+                "message": issue.get("message", ""),
+                "line": issue.get("line", "")
+            }
+
+            document_text = (
+                f"This is a code analysis issue with ID {issue.get('id', 'N/A')}. "
+                f"It occurs in the file {issue.get('file', 'unknown')} on line {issue.get('line', 'N/A')}. "
+                f"The severity of the issue is {issue.get('severity', 'unknown')}. "
+                f"The message describing the issue is: {issue.get('message', '')}. "
+                f"This might relate to C# compiler warnings or best practices violations."
+            ).lower()
 
             collection.add(
-                ids=[f"issue_{idx}"],
-                documents=[text],
-                embeddings=[embedding],
-                metadatas=[{"file": item['file']}]
+                documents=[document_text],
+                metadatas=[metadata],
+                ids=[f"issue_{i}"],
+                embeddings=[embeddings[i]]
             )
 
         print(f"[EmbeddingAgent] Stored {len(issues)} issues into ChromaDB.")
