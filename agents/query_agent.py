@@ -10,59 +10,46 @@ class QueryAgent:
         self.client = Client(Settings(persist_directory=str(self.db_dir)))
         self.model = SentenceTransformer("all-MiniLM-L6-v2")
 
-    def search_issues(self, query: str, top_k: int = 5):
-        collection = self.client.get_collection(self.collection_name)
+    def search_issues(self, query_text: str, top_k: int = 5):
+        """
+        Searches issues in ChromaDB based on a text query.
+        Returns top_k matching issues with file, message, and severity.
+        """
+        collection = self.chroma_client.get_collection(self.collection_name)
+        if collection.count() == 0:
+            print("[QueryAgent] No issues found in the database.")
+            return []
     
-        # safe get + flatten
-        all_data = collection.get(include=["documents", "metadatas"])
-        metadatas_batches = all_data.get("metadatas", []) or []
-        documents_batches = all_data.get("documents", []) or []
-        metadatas = [m for batch in metadatas_batches for m in batch]
-        documents = [d for batch in documents_batches for d in batch]
-
-        q = query.lower()
+        # Generate embedding for the query
+        query_embedding = self.model.encode([query_text])[0].tolist()
     
-        # rule-based -> file counts
-        if "file with high" in q or "most issues" in q or "file with most" in q:
-            files = [m.get("file", "unknown") for m in metadatas]
-            top_files = Counter(files).most_common(top_k)
-            return [{"file": f, "count": c} for f, c in top_files]
-
-        # rule-based severity filtering
-        filtered_meta_ids = None
-        if "warning" in q:
-            filtered_meta_ids = {i for i, m in enumerate(metadatas) if m.get("severity","").lower() == "warning"}
-        elif "error" in q or "high severity" in q:
-            filtered_meta_ids = {i for i, m in enumerate(metadatas) if m.get("severity","").lower() in ("error","high")}
-
-        # semantic search
-        query_embedding = self.model.encode([query])[0].tolist()
+        # Perform similarity search
         results = collection.query(
             query_embeddings=[query_embedding],
             n_results=top_k,
-            include=["documents", "metadatas"]
+            include=["documents", "metadatas", "distances"]
         )
-
-        docs = (results.get("documents") or [[]])[0]
-        metas = (results.get("metadatas") or [[]])[0]
-
-        out = []
-        for doc, meta in zip(docs, metas):
-            if filtered_meta_ids is not None:
-                if meta not in metadatas:
-                    continue
-                idx = metadatas.index(meta)
-                if idx not in filtered_meta_ids:
-                    continue
-            out.append({
-                "file": meta.get("file", "unknown"),
-                "line": meta.get("line", -1),
-                "severity": meta.get("severity", "unknown"),
-                "issue": meta.get("message", ""),
-                "match": doc
-            })
-
-        return out
+    
+        metadatas = results.get("metadatas", [[]])[0]
+    
+        # Filter only valid metadata dictionaries with high severity or errors
+        filtered_meta_ids = {
+            i for i, m in enumerate(metadatas)
+            if isinstance(m, dict) and m.get("severity", "").lower() in ("error", "high")
+        }
+    
+        # Build clean results list
+        clean_results = [
+            {
+                "file": m.get("file", "unknown"),
+                "issue": m.get("message", "unknown"),
+                "severity": m.get("severity", "unknown")
+            }
+            for i, m in enumerate(metadatas)
+            if i in filtered_meta_ids and isinstance(m, dict)
+        ]
+    
+        return clean_results
 
     # New helper to handle user input and display
     def query_issues(self):
