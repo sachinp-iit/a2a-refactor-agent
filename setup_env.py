@@ -33,15 +33,18 @@ def main():
     install_requirements_if_needed()
     run_shell_script("./install_dotnet_roslynator.sh")
 
-    dotnet_tools = os.path.expanduser("~/.dotnet/tools")
     dotnet_root = os.path.expanduser("~/.dotnet")
+    dotnet_tools = os.path.join(dotnet_root, "tools")
     os.environ["DOTNET_ROOT"] = dotnet_root
     os.environ["PATH"] = f"{dotnet_root}{os.pathsep}{dotnet_tools}{os.pathsep}{os.environ.get('PATH', '')}"
+
+    # Force reload PATH in current session
+    os.environ["PATH"] = os.environ["PATH"]  # Ensure PATH update is applied
 
     # Verify Roslynator installation
     from shutil import which
     if which("roslynator") is None:
-        print("[Error] Roslynator not found in PATH after installation!")
+        print("[Error] Roslynator not found in PATH after installation! Please ensure .NET and Roslynator are correctly installed.")
         sys.exit(1)
     else:
         print("[Setup] Roslynator is ready!")
