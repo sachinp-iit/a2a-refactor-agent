@@ -20,6 +20,9 @@ if ! command -v roslynator &> /dev/null; then
     $HOME/.dotnet/dotnet tool install -g Roslynator.DotNet.Cli --version 0.8.4
 fi
 
+# Update current session PATH
+export PATH=$HOME/.dotnet:$HOME/.dotnet/tools:$PATH
+
 # Verify Roslynator installation
 if command -v roslynator &> /dev/null; then
     echo "[Main] Roslynator CLI installation complete."
