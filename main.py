@@ -17,7 +17,10 @@ from agents.approval_agent import ApprovalAgent
 DB_DIR = "chroma_db"
 COLLECTION_NAME = "roslynator_issues"
 
-def is_chromadb_ready(db_dir: str = DB_DIR, collection_name: str = COLLECTION_NAME) -> bool:
+def is_chromadb_ready(db_dir: str, collection_name: str = COLLECTION_NAME) -> bool:
+    """
+    Checks if a ChromaDB collection exists and has data.
+    """
     try:
         client = Client(Settings(persist_directory=db_dir))
         col = client.get_collection(collection_name)
@@ -54,6 +57,7 @@ def ensure_roslynator_installed():
 def main_menu():
     repo_manager = RepoManager()
     query_agent = None
+    repo_path = None  # track last cloned repo path
 
     while True:
         print("\n===== C# Auto-Refactor Agent Menu =====")
@@ -65,7 +69,6 @@ def main_menu():
         choice = input("Select an option [1-4]: ").strip()
 
         if choice == "1":
-            # Delegate to RepoManager and other agents
             repo_url = input("Enter the GitHub repo URL to clone: ").strip()
             if not repo_url:
                 print("Repository URL is required.")
@@ -79,23 +82,34 @@ def main_menu():
 
             ensure_roslynator_installed()
 
-            roslynator_agent = RoslynatorAgent(repo_path=repo_path, output_dir=os.path.join(repo_path, "analysis"))
+            roslynator_agent = RoslynatorAgent(
+                repo_path=repo_path,
+                output_dir=os.path.join(repo_path, "analysis")
+            )
             json_report_path = roslynator_agent.run_analysis()
             if not json_report_path:
                 print("Roslynator analysis failed or no report generated.")
                 continue
 
-            embedding_agent = EmbeddingAgent(json_report_path=json_report_path, db_dir=os.path.join(repo_path, "chroma_db"))
+            embedding_agent = EmbeddingAgent(
+                json_report_path=json_report_path,
+                db_dir=os.path.join(repo_path, "chroma_db")
+            )
             embedding_agent.store_embeddings()
+
             query_agent = QueryAgent(db_dir=os.path.join(repo_path, "chroma_db"))
             print("Clone and analysis complete.")
 
         elif choice == "2":
-            if query_agent is None and is_chromadb_ready():
-                query_agent = QueryAgent(DB_DIR)  # lazy init if DB already populated
             if query_agent is None:
-                print("No ChromaDB data found. Please run clone and analysis first.")
-                continue
+                if repo_path and is_chromadb_ready(os.path.join(repo_path, "chroma_db")):
+                    query_agent = QueryAgent(db_dir=os.path.join(repo_path, "chroma_db"))
+                elif is_chromadb_ready(DB_DIR):
+                    query_agent = QueryAgent(db_dir=DB_DIR)
+                    repo_path = DB_DIR
+                else:
+                    print("No ChromaDB data found. Please run clone and analysis first.")
+                    continue
 
             query_text = input("Enter your search query (or blank to cancel): ").strip()
             if not query_text:
@@ -112,13 +126,17 @@ def main_menu():
                 print(f"{i}. File: {res['file']}\n   Issue: {res['issue']}\n")
 
         elif choice == "3":
-            if query_agent is None and is_chromadb_ready():
-                print("ChromaDB found. Ready for approval/refactor loop.")
-            elif query_agent is None:
-                print("No analysis found. Please run clone and analysis first.")
-                continue
+            if query_agent is None:
+                if repo_path and is_chromadb_ready(os.path.join(repo_path, "chroma_db")):
+                    query_agent = QueryAgent(db_dir=os.path.join(repo_path, "chroma_db"))
+                elif is_chromadb_ready(DB_DIR):
+                    query_agent = QueryAgent(db_dir=DB_DIR)
+                    repo_path = DB_DIR
+                else:
+                    print("No analysis found. Please run clone and analysis first.")
+                    continue
 
-            json_report_path = os.path.join(query_agent.db_dir, "..", "analysis", "report.json")
+            json_report_path = os.path.join(repo_path, "analysis", "report.json")
             refactor_agent = RefactorAgent(api_key=os.environ.get("OPENAI_API_KEY", ""))
             approval_agent = ApprovalAgent()
 
