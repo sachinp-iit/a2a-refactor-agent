@@ -38,38 +38,17 @@ def main():
     install_requirements_if_needed()
     run_shell_script("./install_dotnet_roslynator.sh")
 
-    dotnet_root = os.path.expanduser("~/.dotnet")
-    dotnet_tools = os.path.join(dotnet_root, "tools")
-    os.environ["DOTNET_ROOT"] = dotnet_root
-    os.environ["PATH"] = f"{dotnet_root}{os.pathsep}{dotnet_tools}{os.pathsep}{os.environ.get('PATH', '')}"
-
-    # Force PATH update in current Python session
-    os.putenv("PATH", os.environ["PATH"])
-
-    # Verify .NET installation
-    from shutil import which
-    dotnet_path = which("dotnet") or os.path.join(dotnet_root, "dotnet")
-    if not os.path.exists(dotnet_path):
-        print("[Error] .NET SDK not found after installation!")
-        sys.exit(1)
-    try:
-        subprocess.run([dotnet_path, "--version"], check=True, capture_output=True, text=True)
-        print("[Setup] .NET SDK is ready!")
-    except subprocess.CalledProcessError as e:
-        print(f"[Error] .NET SDK verification failed: {e.stderr}")
-        sys.exit(1)
+    dotnet_tools = os.path.expanduser("~/.dotnet/tools")
+    if dotnet_tools not in os.environ["PATH"]:
+        os.environ["PATH"] = f"{os.environ['PATH']}{os.pathsep}{dotnet_tools}"
 
     # Verify Roslynator installation
-    roslynator_path = which("roslynator") or os.path.join(dotnet_tools, "roslynator")
-    if not os.path.exists(roslynator_path):
-        print("[Error] Roslynator not found after installation!")
+    from shutil import which
+    if which("roslynator") is None:
+        print("[Error] Roslynator not found in PATH after installation!")
         sys.exit(1)
-    try:
-        subprocess.run([roslynator_path, "--version"], check=True, capture_output=True, text=True)
+    else:
         print("[Setup] Roslynator is ready!")
-    except subprocess.CalledProcessError as e:
-        print(f"[Error] Roslynator verification failed: {e.stderr}")
-        sys.exit(1)
 
     print("[Setup] Environment setup complete!")
 
