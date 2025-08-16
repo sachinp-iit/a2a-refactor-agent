@@ -2,6 +2,7 @@ import os
 import subprocess
 import json
 from pathlib import Path
+import shutil
 
 class RoslynatorAgent:
     def __init__(self, repo_path: str, output_dir: str):
