@@ -56,7 +56,7 @@ class QueryAgent:
         # Sort by distance (closest match first)
         clean_results.sort(key=lambda x: x["distance"])
     
-        return clean_result
+        return clean_results
 
     def query_issues(self):
         query_text = input("Enter your search query (or blank to cancel): ").strip()
