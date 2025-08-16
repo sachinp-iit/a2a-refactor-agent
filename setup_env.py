@@ -32,6 +32,18 @@ def run_shell_script(script_path):
 def main():
     install_requirements_if_needed()
     run_shell_script("./install_dotnet_roslynator.sh")
+
+    dotnet_tools = os.path.expanduser("~/.dotnet/tools")
+    if dotnet_tools not in os.environ["PATH"]:
+        os.environ["PATH"] += os.pathsep + dotnet_tools
+
+    # Optional check if Roslynator is now available
+    from shutil import which
+    if which("roslynator") is None:
+        print("[Setup] Warning: Roslynator not found in PATH!")
+    else:
+        print("[Setup] Roslynator is ready!")
+
     print("[Setup] Environment setup complete!")
 
 if __name__ == "__main__":
