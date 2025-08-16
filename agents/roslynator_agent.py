@@ -10,70 +10,64 @@ class RoslynatorAgent:
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def run_analysis(self):
-        """
-        Runs Roslynator analysis on all C# files in the repo.
-        Output will be saved as roslynator_analysis.json inside output_dir.
-        """
-        print(f"[RoslynatorAgent] Running analysis on {self.repo_path}...")
-    
-        cs_files = list(self.repo_path.rglob("*.cs"))
-        if not cs_files:
-            print("[RoslynatorAgent] No C# files found.")
-            return None
-    
-        report_path = self.output_dir / "roslynator_analysis.txt"
-        json_path = self.output_dir / "roslynator_analysis.json"
-    
-        try:
-            # Run Roslynator CLI with comprehensive settings
-            cmd = [
-                "roslynator", "analyze",
-                str(self.repo_path),  # Analyze entire directory
-                "--output", str(json_path),
-                "--format", "json",
-                "--severity-level", "Info",  # Include all diagnostics
-                "--verbosity", "detailed",
-                "--no-ignore"  # Ensure no diagnostics are ignored
-            ]
-    
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                check=True
-            )
-    
-            # Save raw output to text file for debugging
-            with open(report_path, "w", encoding="utf-8") as f:
-                f.write(result.stdout)
-    
-            print(f"[RoslynatorAgent] Analysis complete. Report saved to {report_path}")
-    
-            # Verify JSON report
-            if not os.path.exists(json_path):
-                print(f"[RoslynatorAgent] JSON report not generated at {json_path}")
-                return None
-    
-            with open(json_path, "r", encoding="utf-8") as f:
-                analysis_data = json.load(f)
-    
-            # Ensure JSON has valid structure
-            if not analysis_data or (isinstance(analysis_data, list) and not analysis_data):
-                print("[RoslynatorAgent] No issues found in JSON report.")
-                return json_path
-    
-            print(f"[RoslynatorAgent] JSON report saved to {json_path}")
+    """
+    Runs Roslynator analysis on all C# files in the repo.
+    Output will be saved as roslynator_analysis.json inside output_dir.
+    """
+    print(f"[RoslynatorAgent] Running analysis on {self.repo_path}...")
+
+    project_files = list(self.repo_path.rglob("*.csproj")) + list(self.repo_path.rglob("*.sln"))
+    if not project_files:
+        print("[RoslynatorAgent] No C# project or solution files found.")
+        return None
+
+    json_path = self.output_dir / "roslynator_analysis.json"
+
+    try:
+        cmd = [
+            "roslynator", "analyze",
+            "--msbuild-path", os.path.dirname(shutil.which("dotnet")),
+            "--output", str(json_path),
+            "--output-format", "gitlab",
+            "--severity-level", "info",
+            "--report-suppressed-diagnostics"
+        ] + [str(p) for p in project_files]
+
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        print(f"[RoslynatorAgent] Analysis complete. Report saved to {json_path}")
+
+        # Load GitLab format (JSON lines) and transform to list of dicts [{"file": "...", "issue": "..."}]
+        issues = []
+        with open(json_path, "r", encoding="utf-8") as f:
+            for line in f:
+                if line.strip():
+                    gitlab_issue = json.loads(line)
+                    if "path" in gitlab_issue and "description" in gitlab_issue:
+                        issues.append({
+                            "file": gitlab_issue["path"],
+                            "issue": gitlab_issue["description"]
+                        })
+
+        # Overwrite with transformed JSON
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(issues, f, indent=2)
+
+        if not issues:
+            print("[RoslynatorAgent] No issues found in analysis.")
             return json_path
-    
-        except subprocess.CalledProcessError as e:
-            print(f"[RoslynatorAgent] Roslynator analysis failed: {e.stderr}")
-            return None
-        except FileNotFoundError:
-            print("[RoslynatorAgent] Roslynator CLI not found. Please install it first.")
-            return None
-        except json.JSONDecodeError:
-            print("[RoslynatorAgent] Invalid JSON report generated.")
-            return None
+
+        print(f"[RoslynatorAgent] JSON report transformed and saved to {json_path}")
+        return json_path
+
+    except subprocess.CalledProcessError as e:
+        print(f"[RoslynatorAgent] Roslynator analysis failed: {e.stderr}")
+        return None
+    except FileNotFoundError:
+        print("[RoslynatorAgent] Roslynator CLI not found. Please install it first.")
+        return None
+    except json.JSONDecodeError:
+        print("[RoslynatorAgent] Invalid JSON report generated.")
+        return None
 
     def _parse_report_to_json(self, report_path: Path):
         """
