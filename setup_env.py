@@ -1,22 +1,30 @@
-import importlib.util
 import subprocess
 import os
+import sys
 
-# List of Python packages
-packages = ["sentence-transformers", "chromadb", "pandas", "pyyaml", "openai", "gitpython"]
+def install_requirements():
+    """Install all Python packages from requirements.txt"""
+    if not os.path.exists("requirements.txt"):
+        print("[Error] requirements.txt not found!")
+        sys.exit(1)
+    print("[Setup] Installing Python packages from requirements.txt...")
+    subprocess.run([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"], check=True)
+    print("[Setup] Python packages installation complete!")
 
-for pkg in packages:
-    if importlib.util.find_spec(pkg) is None:
-        print(f"[Setup] Installing Python package: {pkg}")
-        subprocess.run(["pip", "install", pkg], check=True)
-    else:
-        print(f"[Setup] Python package {pkg} already installed — skipping pip install.")
+def run_shell_script(script_path):
+    """Make shell script executable and run it"""
+    if not os.path.exists(script_path):
+        print(f"[Error] Shell script {script_path} not found!")
+        sys.exit(1)
+    os.chmod(script_path, 0o755)
+    print(f"[Setup] Running shell script: {script_path}...")
+    subprocess.run(["bash", script_path], check=True)
+    print(f"[Setup] Shell script {script_path} completed!")
 
-# Make sure the shell script is executable
-script_path = "./install_dotnet_roslynator.sh"
-os.chmod(script_path, 0o755)
+def main():
+    install_requirements()
+    run_shell_script("./install_dotnet_roslynator.sh")
+    print("[Setup] Environment setup complete!")
 
-# Run the existing shell script (it already checks internally)
-subprocess.run(["bash", script_path], check=True)
-
-print("[Setup] Environment setup complete!")
+if __name__ == "__main__":
+    main()
