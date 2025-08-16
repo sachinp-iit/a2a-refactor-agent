@@ -35,12 +35,13 @@ def main():
 
     dotnet_tools = os.path.expanduser("~/.dotnet/tools")
     if dotnet_tools not in os.environ["PATH"]:
-        os.environ["PATH"] += os.pathsep + dotnet_tools
+        os.environ["PATH"] = f"{dotnet_tools}{os.pathsep}{os.environ['PATH']}"
 
-    # Optional check if Roslynator is now available
+    # Verify Roslynator installation
     from shutil import which
     if which("roslynator") is None:
-        print("[Setup] Warning: Roslynator not found in PATH!")
+        print("[Error] Roslynator not found in PATH after installation!")
+        sys.exit(1)
     else:
         print("[Setup] Roslynator is ready!")
 
