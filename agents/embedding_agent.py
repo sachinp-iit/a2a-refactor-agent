@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from chromadb import Client
 from chromadb.config import Settings
+import uuid
 
 class EmbeddingAgent:
     def __init__(self, json_report_path: str, db_dir: str, collection_name: str = "roslynator_issues"):
