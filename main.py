@@ -13,14 +13,13 @@ from agents.query_agent import QueryAgent
 from agents.refactor_agent import RefactorAgent
 from agents.approval_agent import ApprovalAgent
 
-# --- add globals ---
-DB_DIR = "chroma_db"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_DIR = os.path.join(BASE_DIR, "chroma_db")
 COLLECTION_NAME = "roslynator_issues"
 
 def is_chromadb_ready(db_dir: str = DB_DIR, collection_name: str = COLLECTION_NAME) -> bool:
     try:
-        client = Client(Settings(persist_directory=db_dir))
-        col = client.get_collection(collection_name)
+        col = Client(Settings(persist_directory=db_dir)).get_collection(collection_name)
         return col.count() > 0
     except Exception:
         return False
@@ -71,11 +70,14 @@ def clone_and_analyze(repo_manager):
         print("Roslynator analysis failed or no report generated.")
         return repo_path, None, None
 
-    embedding_agent = EmbeddingAgent(json_report_path=json_report_path, db_dir=os.path.join(repo_path, "chroma_db"))
+    embedding_agent = EmbeddingAgent(
+        json_report_path=json_report_path,
+        db_dir=DB_DIR
+    )
     embedding_agent.store_embeddings()
-
+    
     print("Clone and analysis complete.")
-    return repo_path, json_report_path, embedding_agent.db_dir
+    return repo_path, json_report_path, DB_DIR
 
 
 def query_issues(query_agent):
