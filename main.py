@@ -32,32 +32,6 @@ def is_chromadb_ready(db_dir: str, collection_name: str = COLLECTION_NAME) -> bo
     except Exception:
         return False
 
-def ensure_roslynator_installed():
-    """
-    Ensures that Roslynator CLI is installed and available in PATH.
-    If missing, installs it using the provided shell script.
-    """
-    if shutil.which("roslynator"):        
-        return        
-
-    if not os.path.exists("install_dotnet_roslynator.sh"):
-        print("[Main] ERROR: install_dotnet_roslynator.sh not found.")
-        return
-
-    subprocess.run(["bash", "install_dotnet_roslynator.sh"], check=True)
-
-    dotnet_root = os.path.expanduser("~/.dotnet")
-    dotnet_tools = os.path.expanduser("~/.dotnet/tools")
-
-    # Only add if not already in PATH
-    path_parts = os.environ["PATH"].split(":")
-    if dotnet_root not in path_parts:
-        os.environ["PATH"] += f":{dotnet_root}"
-    if dotnet_tools not in path_parts:
-        os.environ["PATH"] += f":{dotnet_tools}"
-
-    os.environ["DOTNET_ROOT"] = dotnet_root
-
 def main_menu():
     repo_manager = RepoManager()
     query_agent = None
@@ -83,8 +57,6 @@ def main_menu():
             if not cs_files:
                 print("No C# files found in the repository.")
                 continue
-
-            ensure_roslynator_installed()
 
             roslynator_agent = RoslynatorAgent(
                 repo_path=repo_path,
