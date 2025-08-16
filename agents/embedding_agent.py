@@ -34,9 +34,10 @@ class EmbeddingAgent:
         collection = self.chroma_client.get_or_create_collection(name=self.collection_name)
 
         for i, issue in enumerate(issues):
+            issue_id = issue.get("id") or issue.get("ruleId") or str(uuid.uuid4())
             metadata = {
                 "file": issue["file"],
-                "id": issue["id"],
+                "id": issue_id,
                 "severity": issue["severity"],
                 "message": issue["message"],
                 "line": issue["line"]
@@ -44,10 +45,10 @@ class EmbeddingAgent:
 
             # Construct verbose, contextual document text
             document_text = (
-                f"This is a code analysis issue with ID {issue['id']}. "
-                f"It occurs in the file {issue['file']} on line {issue['line']}. "
-                f"The severity of the issue is {issue['severity']}. "
-                f"The message describing the issue is: {issue['message']}. "
+                f"This is a code analysis issue with ID {issue_id}. "
+                f"It occurs in the file {issue.get('file', 'unknown')} on line {issue.get('line', -1)}. "
+                f"The severity of the issue is {issue.get('severity', 'unknown')}. "
+                f"The message describing the issue is: {issue.get('message', '')}. "
                 f"This might relate to C# compiler warnings or best practices violations."
             ).lower()
 
