@@ -12,40 +12,67 @@ class RoslynatorAgent:
     def run_analysis(self):
         """
         Runs Roslynator analysis on all C# files in the repo.
-        Output will be saved as analysis_report.json inside output_dir.
+        Output will be saved as roslynator_analysis.json inside output_dir.
         """
         print(f"[RoslynatorAgent] Running analysis on {self.repo_path}...")
-
+    
         cs_files = list(self.repo_path.rglob("*.cs"))
         if not cs_files:
             print("[RoslynatorAgent] No C# files found.")
             return None
-
+    
         report_path = self.output_dir / "roslynator_analysis.txt"
-
+        json_path = self.output_dir / "roslynator_analysis.json"
+    
         try:
-            # Run Roslynator CLI for each file
+            # Run Roslynator CLI with comprehensive settings
+            cmd = [
+                "roslynator", "analyze",
+                str(self.repo_path),  # Analyze entire directory
+                "--output", str(json_path),
+                "--format", "json",
+                "--severity-level", "Info",  # Include all diagnostics
+                "--verbosity", "detailed",
+                "--no-ignore"  # Ensure no diagnostics are ignored
+            ]
+    
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                check=True
+            )
+    
+            # Save raw output to text file for debugging
             with open(report_path, "w", encoding="utf-8") as f:
-                for cs_file in cs_files:
-                    cmd = ["roslynator", "analyze", str(cs_file)]
-                    result = subprocess.run(cmd, capture_output=True, text=True)
-                    f.write(f"=== {cs_file} ===\n")
-                    f.write(result.stdout)
-                    f.write("\n\n")
-
+                f.write(result.stdout)
+    
             print(f"[RoslynatorAgent] Analysis complete. Report saved to {report_path}")
-
-            # Optionally parse to JSON (simple split)
-            json_path = self.output_dir / "roslynator_analysis.json"
-            analysis_data = self._parse_report_to_json(report_path)
-            with open(json_path, "w", encoding="utf-8") as jf:
-                json.dump(analysis_data, jf, indent=2)
-
+    
+            # Verify JSON report
+            if not os.path.exists(json_path):
+                print(f"[RoslynatorAgent] JSON report not generated at {json_path}")
+                return None
+    
+            with open(json_path, "r", encoding="utf-8") as f:
+                analysis_data = json.load(f)
+    
+            # Ensure JSON has valid structure
+            if not analysis_data or (isinstance(analysis_data, list) and not analysis_data):
+                print("[RoslynatorAgent] No issues found in JSON report.")
+                return json_path
+    
             print(f"[RoslynatorAgent] JSON report saved to {json_path}")
             return json_path
-
+    
+        except subprocess.CalledProcessError as e:
+            print(f"[RoslynatorAgent] Roslynator analysis failed: {e.stderr}")
+            return None
         except FileNotFoundError:
             print("[RoslynatorAgent] Roslynator CLI not found. Please install it first.")
+            return None
+        except json.JSONDecodeError:
+            print("[RoslynatorAgent] Invalid JSON report generated.")
             return None
 
     def _parse_report_to_json(self, report_path: Path):
