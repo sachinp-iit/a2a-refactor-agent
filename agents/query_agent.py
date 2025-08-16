@@ -1,7 +1,6 @@
 from chromadb import Client
 from chromadb.config import Settings
 from sentence_transformers import SentenceTransformer
-import re
 from collections import Counter
 
 class QueryAgent:
@@ -20,8 +19,7 @@ class QueryAgent:
         documents_batches = all_data.get("documents", []) or []
         metadatas = [m for batch in metadatas_batches for m in batch]
         documents = [d for batch in documents_batches for d in batch]
-    
-        from collections import Counter
+
         q = query.lower()
     
         # rule-based -> file counts
@@ -29,14 +27,14 @@ class QueryAgent:
             files = [m.get("file", "unknown") for m in metadatas]
             top_files = Counter(files).most_common(top_k)
             return [{"file": f, "count": c} for f, c in top_files]
-    
-        # rule-based severity filtering (if mentioned)
+
+        # rule-based severity filtering
         filtered_meta_ids = None
         if "warning" in q:
-            filtered_meta_ids = {i for i,m in enumerate(metadatas) if m.get("severity","").lower()=="warning"}
+            filtered_meta_ids = {i for i, m in enumerate(metadatas) if m.get("severity","").lower() == "warning"}
         elif "error" in q or "high severity" in q:
-            filtered_meta_ids = {i for i,m in enumerate(metadatas) if m.get("severity","").lower() in ("error","high")}
-    
+            filtered_meta_ids = {i for i, m in enumerate(metadatas) if m.get("severity","").lower() in ("error","high")}
+
         # semantic search
         query_embedding = self.model.encode([query])[0].tolist()
         results = collection.query(
@@ -44,16 +42,13 @@ class QueryAgent:
             n_results=top_k,
             include=["documents", "metadatas"]
         )
-    
+
         docs = (results.get("documents") or [[]])[0]
         metas = (results.get("metadatas") or [[]])[0]
-    
+
         out = []
         for doc, meta in zip(docs, metas):
-            # if a severity filter was set, skip non-matching entries
             if filtered_meta_ids is not None:
-                # find index of this meta in the flattened metadatas list
-                # (match by file+line+message fallback when ids not present)
                 if meta not in metadatas:
                     continue
                 idx = metadatas.index(meta)
@@ -63,8 +58,25 @@ class QueryAgent:
                 "file": meta.get("file", "unknown"),
                 "line": meta.get("line", -1),
                 "severity": meta.get("severity", "unknown"),
-                "message": meta.get("message", ""),
+                "issue": meta.get("message", ""),
                 "match": doc
             })
-    
+
         return out
+
+    # New helper to handle user input and display
+    def query_issues(self):
+        query_text = input("Enter your search query (or blank to cancel): ").strip()
+        if not query_text:
+            print("Query cancelled.")
+            return
+        results = self.search_issues(query_text)
+        if not results:
+            print("No matching issues found.")
+            return
+        print(f"\nTop {len(results)} matching issues:")
+        for i, res in enumerate(results, 1):
+            if "count" in res:
+                print(f"{i}. File: {res['file']} | Issues: {res['count']}")
+            else:
+                print(f"{i}. File: {res['file']}\n   Line: {res['line']}\n   Severity: {res['severity']}\n   Issue: {res['issue']}\n")
