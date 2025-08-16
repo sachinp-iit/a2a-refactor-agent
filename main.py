@@ -13,6 +13,10 @@ from agents.query_agent import QueryAgent
 from agents.refactor_agent import RefactorAgent
 from agents.approval_agent import ApprovalAgent
 
+# Supressing the warnings
+os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+
 # --- add globals ---
 DB_DIR = "chroma_db"
 COLLECTION_NAME = "roslynator_issues"
