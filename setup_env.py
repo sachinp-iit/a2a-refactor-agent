@@ -48,24 +48,28 @@ def main():
 
     # Verify .NET installation
     from shutil import which
-    if which("dotnet") is None:
-        print("[Error] .NET SDK not found in PATH after installation! Attempting direct path...")
-        if not os.path.exists(os.path.join(dotnet_root, "dotnet")):
-            print("[Error] .NET SDK binary not found at expected location!")
-            sys.exit(1)
-        print("[Setup] .NET SDK found at direct path.")
-    else:
+    dotnet_path = which("dotnet") or os.path.join(dotnet_root, "dotnet")
+    if not os.path.exists(dotnet_path):
+        print("[Error] .NET SDK not found after installation!")
+        sys.exit(1)
+    try:
+        subprocess.run([dotnet_path, "--version"], check=True, capture_output=True, text=True)
         print("[Setup] .NET SDK is ready!")
+    except subprocess.CalledProcessError as e:
+        print(f"[Error] .NET SDK verification failed: {e.stderr}")
+        sys.exit(1)
 
     # Verify Roslynator installation
-    if which("roslynator") is None:
-        print("[Error] Roslynator not found in PATH after installation! Attempting direct path...")
-        if not os.path.exists(os.path.join(dotnet_tools, "roslynator")):
-            print("[Error] Roslynator binary not found at expected location!")
-            sys.exit(1)
-        print("[Setup] Roslynator found at direct path.")
-    else:
+    roslynator_path = which("roslynator") or os.path.join(dotnet_tools, "roslynator")
+    if not os.path.exists(roslynator_path):
+        print("[Error] Roslynator not found after installation!")
+        sys.exit(1)
+    try:
+        subprocess.run([roslynator_path, "--version"], check=True, capture_output=True, text=True)
         print("[Setup] Roslynator is ready!")
+    except subprocess.CalledProcessError as e:
+        print(f"[Error] Roslynator verification failed: {e.stderr}")
+        sys.exit(1)
 
     print("[Setup] Environment setup complete!")
 
