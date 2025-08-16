@@ -17,11 +17,9 @@ def ensure_roslynator_installed():
     Ensures that Roslynator CLI is installed and available in PATH.
     If missing, installs it using the provided shell script.
     """
-    if shutil.which("roslynator"):
-        print("[Main] Roslynator CLI is already installed.")
-        return
-
-    print("[Main] Roslynator CLI not found. Installing...")
+    if shutil.which("roslynator"):        
+        return        
+    
     if not os.path.exists("install_dotnet_roslynator.sh"):
         print("[Main] ERROR: install_dotnet_roslynator.sh not found.")
         return
@@ -39,9 +37,7 @@ def ensure_roslynator_installed():
         os.environ["PATH"] += f":{dotnet_tools}"
 
     os.environ["DOTNET_ROOT"] = dotnet_root
-    print("[Main] Roslynator CLI installation complete.")
-
-
+    
 def clone_and_analyze(repo_manager):
     repo_url = input("Enter the GitHub repo URL to clone: ").strip()
     if not repo_url:
