@@ -1,15 +1,23 @@
 import subprocess
 import os
 import sys
+import pkg_resources
 
-def install_requirements():
-    """Install all Python packages from requirements.txt"""
-    if not os.path.exists("requirements.txt"):
-        print("[Error] requirements.txt not found!")
-        sys.exit(1)
-    print("[Setup] Installing Python packages from requirements.txt...")
-    subprocess.run([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"], check=True)
-    print("[Setup] Python packages installation complete!")
+def install_requirements_if_needed(requirements_file='requirements.txt'):
+    # Read the requirements file
+    with open(requirements_file, 'r') as f:
+        requirements = [line.strip() for line in f if line.strip() and not line.startswith('#')]
+
+    # Check which packages are missing
+    installed_packages = {pkg.key for pkg in pkg_resources.working_set}
+    missing_packages = [pkg for pkg in requirements if pkg.lower().split('==')[0] not in installed_packages]
+
+    # Install only if there are missing packages
+    if missing_packages:
+        print(f"Installing missing packages: {missing_packages}")
+        subprocess.check_call(['pip', 'install', '-r', requirements_file])
+    else:
+        print("All packages already installed. No need to call requirements.txt.")
 
 def run_shell_script(script_path):
     """Make shell script executable and run it"""
@@ -22,7 +30,7 @@ def run_shell_script(script_path):
     print(f"[Setup] Shell script {script_path} completed!")
 
 def main():
-    install_requirements()
+    install_requirements_if_needed()
     run_shell_script("./install_dotnet_roslynator.sh")
     print("[Setup] Environment setup complete!")
 
