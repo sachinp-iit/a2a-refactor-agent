@@ -26,8 +26,13 @@ def run_shell_script(script_path):
         sys.exit(1)
     os.chmod(script_path, 0o755)
     print(f"[Setup] Running shell script: {script_path}...")
-    subprocess.run(["bash", script_path], check=True)
-    print(f"[Setup] Shell script {script_path} completed!")
+    try:
+        result = subprocess.run(["bash", script_path], check=True, capture_output=True, text=True)
+        print(result.stdout)
+        print(f"[Setup] Shell script {script_path} completed!")
+    except subprocess.CalledProcessError as e:
+        print(f"[Error] Shell script execution failed: {e.stderr}")
+        sys.exit(1)
 
 def main():
     install_requirements_if_needed()
