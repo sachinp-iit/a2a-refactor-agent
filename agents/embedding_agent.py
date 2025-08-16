@@ -13,9 +13,10 @@ class EmbeddingAgent:
         self.chroma_client = Client(Settings(persist_directory=str(self.db_dir)))
         self.model = SentenceTransformer("all-MiniLM-L6-v2")
 
-    def store_embeddings(self):
+    def store_embeddings(self, clear_existing: bool = False):
         """
         Store issues from JSON report into ChromaDB using local embeddings.
+        Optionally clears existing issues to avoid duplicates.
         """
         if not self.json_report_path.exists():
             raise FileNotFoundError(f"JSON report not found at {self.json_report_path}")
@@ -26,10 +27,19 @@ class EmbeddingAgent:
         if not issues:
             raise ValueError("No issues found in JSON report.")
 
+        if clear_existing:
+            self.chroma_client.delete_collection(name=self.collection_name)
+
         collection = self.chroma_client.get_or_create_collection(name=self.collection_name)
+
+        existing_ids = set(collection.get()["ids"]) if collection.count() > 0 else set()
 
         for i, issue in enumerate(issues):
             issue_id = issue.get("id") or issue.get("ruleId") or str(uuid.uuid4())
+            unique_key = f"issue_{issue_id}"
+
+            if unique_key in existing_ids:
+                continue  # skip duplicate
 
             metadata = {
                 "file": issue.get("file", "unknown"),
@@ -39,7 +49,6 @@ class EmbeddingAgent:
                 "line": issue.get("line", -1)
             }
 
-            # Rich contextual text
             document_text = (
                 f"Issue {issue_id} in file {metadata['file']} line {metadata['line']}. "
                 f"Severity: {metadata['severity']}. "
@@ -51,8 +60,8 @@ class EmbeddingAgent:
             collection.add(
                 documents=[document_text],
                 metadatas=[metadata],
-                ids=[f"issue_{i}"],
+                ids=[unique_key],
                 embeddings=[embedding]
             )
 
-        print(f"[EmbeddingAgent] Stored {len(issues)} issues into ChromaDB with local embeddings.")
+        print(f"[EmbeddingAgent] Stored {len(issues)} new issues (duplicates skipped).")
