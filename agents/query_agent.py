@@ -1,19 +1,17 @@
 from chromadb import Client
 from chromadb.config import Settings
-from openai import OpenAI
+from sentence_transformers import SentenceTransformer
 
 class QueryAgent:
     def __init__(self, db_dir: str, collection_name: str = "roslynator_issues"):
         self.db_dir = db_dir
         self.collection_name = collection_name
-        self.client = Client(Settings(
-            persist_directory=str(self.db_dir)
-        ))
-        self.openai_client = OpenAI()
+        self.client = Client(Settings(persist_directory=str(self.db_dir)))
+        self.model = SentenceTransformer("all-MiniLM-L6-v2")
 
     def search_issues(self, query: str, top_k: int = 5):
         collection = self.client.get_collection(self.collection_name)
-        query_embedding = self._get_embedding(query)
+        query_embedding = self.model.encode([query])[0].tolist()
 
         results = collection.query(
             query_embeddings=[query_embedding],
@@ -28,13 +26,3 @@ class QueryAgent:
             })
 
         return formatted_results
-
-    def _get_embedding(self, text: str):
-        """
-        Generates OpenAI embeddings for the given text.
-        """
-        response = self.openai_client.embeddings.create(
-            input=text,
-            model="text-embedding-3-small"
-        )
-        return response.data[0].embedding
