@@ -14,20 +14,14 @@ chmod +x dotnet-install.sh
 rm dotnet-install.sh
 
 # Verify .NET installation
-if ! command -v dotnet &> /dev/null; then
+if ! $HOME/.dotnet/dotnet --version &> /dev/null; then
     echo "[Error] .NET SDK installation failed."
     exit 1
 fi
 echo "[Main] .NET SDK and Runtime installation complete."
 
-# Ensure .NET runtime is accessible
-if ! $HOME/.dotnet/dotnet --version &> /dev/null; then
-    echo "[Error] .NET runtime not accessible."
-    exit 1
-fi
-
 # Check if Roslynator is already installed
-if command -v roslynator &> /dev/null; then
+if $HOME/.dotnet/tools/roslynator --version &> /dev/null; then
     echo "[Main] Roslynator CLI already installed."
 else
     echo "Installing Roslynator..."
@@ -35,12 +29,11 @@ else
 fi
 
 # Verify Roslynator installation
-if command -v roslynator &> /dev/null; then
-    echo "[Main] Roslynator CLI installation complete."
-else
+if ! $HOME/.dotnet/tools/roslynator --version &> /dev/null; then
     echo "[Error] Roslynator CLI installation failed."
     exit 1
 fi
+echo "[Main] Roslynator CLI installation complete."
 
 # Ensure PATH is exported for current session
 export PATH=$HOME/.dotnet:$HOME/.dotnet/tools:$PATH
