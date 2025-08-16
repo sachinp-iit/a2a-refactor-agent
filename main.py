@@ -3,6 +3,8 @@ import sys
 import json
 import shutil
 import subprocess
+from chromadb import Client
+from chromadb.config import Settings
 
 from agents.repo_manager import RepoManager
 from agents.roslynator_agent import RoslynatorAgent
@@ -10,14 +12,16 @@ from agents.embedding_agent import EmbeddingAgent
 from agents.query_agent import QueryAgent
 from agents.refactor_agent import RefactorAgent
 from agents.approval_agent import ApprovalAgent
-from chromadb import Client
-from chromadb.config import Settings
 
-def is_chromadb_ready(db_dir: str, collection_name: str = "roslynator_issues") -> bool:
-    client = Client(Settings(persist_directory=db_dir))
+# --- add globals ---
+DB_DIR = "chroma_db"
+COLLECTION_NAME = "roslynator_issues"
+
+def is_chromadb_ready(db_dir: str = DB_DIR, collection_name: str = COLLECTION_NAME) -> bool:
     try:
-        collection = client.get_collection(collection_name)
-        return collection.count() > 0
+        client = Client(Settings(persist_directory=db_dir))
+        col = client.get_collection(collection_name)
+        return col.count() > 0
     except Exception:
         return False
 
@@ -137,12 +141,11 @@ def main_menu():
             if chroma_db_dir:
                 query_agent = QueryAgent(db_dir=chroma_db_dir)
         elif choice == "2":
+            if query_agent is None and is_chromadb_ready():
+                query_agent = QueryAgent(DB_DIR)  # lazy init if DB already populated
             if query_agent is None:
-                if is_chromadb_ready(db_dir):
-                    query_agent = QueryAgent(db_dir)
-                else:
-                    print("No ChromaDB data found. Please run clone and analysis first.")
-                    continue
+                print("No ChromaDB data found. Please run clone and analysis first.")
+                continue
             query_issues(query_agent)
         elif choice == "3":
             approval_and_refactor_loop(json_report_path)
