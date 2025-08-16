@@ -10,7 +10,16 @@ from agents.embedding_agent import EmbeddingAgent
 from agents.query_agent import QueryAgent
 from agents.refactor_agent import RefactorAgent
 from agents.approval_agent import ApprovalAgent
+from chromadb import Client
+from chromadb.config import Settings
 
+def is_chromadb_ready(db_dir: str, collection_name: str = "roslynator_issues") -> bool:
+    client = Client(Settings(persist_directory=db_dir))
+    try:
+        collection = client.get_collection(collection_name)
+        return collection.count() > 0
+    except Exception:
+        return False
 
 def ensure_roslynator_installed():
     """
@@ -128,10 +137,13 @@ def main_menu():
             if chroma_db_dir:
                 query_agent = QueryAgent(db_dir=chroma_db_dir)
         elif choice == "2":
-            if query_agent:
-                query_issues(query_agent)
-            else:
-                print("No ChromaDB loaded. Please run clone and analysis first.")
+            if query_agent is None:
+                if is_chromadb_ready(db_dir):
+                    query_agent = QueryAgent(db_dir)
+                else:
+                    print("No ChromaDB data found. Please run clone and analysis first.")
+                    continue
+            query_issues(query_agent)
         elif choice == "3":
             approval_and_refactor_loop(json_report_path)
         elif choice == "4":
