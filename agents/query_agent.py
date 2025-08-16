@@ -80,3 +80,11 @@ class QueryAgent:
                 print(f"{i}. File: {res['file']} | Issues: {res['count']}")
             else:
                 print(f"{i}. File: {res['file']}\n   Line: {res['line']}\n   Severity: {res['severity']}\n   Issue: {res['issue']}\n")
+
+    # Check if the ChromaDB collection exists and has data.    
+    def is_ready(self) -> bool:
+        try:
+            col = self.client.get_collection(self.collection_name)
+            return col.count() > 0
+        except Exception:
+            return False
