@@ -34,8 +34,9 @@ def main():
     run_shell_script("./install_dotnet_roslynator.sh")
 
     dotnet_tools = os.path.expanduser("~/.dotnet/tools")
-    if dotnet_tools not in os.environ["PATH"]:
-        os.environ["PATH"] = f"{dotnet_tools}{os.pathsep}{os.environ['PATH']}"
+    dotnet_root = os.path.expanduser("~/.dotnet")
+    os.environ["DOTNET_ROOT"] = dotnet_root
+    os.environ["PATH"] = f"{dotnet_root}{os.pathsep}{dotnet_tools}{os.pathsep}{os.environ.get('PATH', '')}"
 
     # Verify Roslynator installation
     from shutil import which
