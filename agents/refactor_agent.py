@@ -1,10 +1,13 @@
 import os
+import json
 from openai import OpenAI
+from agents.approval_agent import ApprovalAgent
 
 class RefactorAgent:
     def __init__(self, api_key: str):
         os.environ["OPENAI_API_KEY"] = api_key
         self.client = OpenAI()
+        self.approval_agent = ApprovalAgent()
 
     def propose_fix(self, file_path: str, issue_description: str):
         """
@@ -45,3 +48,30 @@ C# file content:
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(fixed_code)
         return True
+
+    def approval_and_refactor_loop(self, json_report_path: str):
+        """
+        Handles the full loop of proposing fixes and requesting human approval.
+        """
+        if not json_report_path or not os.path.exists(json_report_path):
+            print("No analysis report available. Please run clone and analysis first.")
+            return
+
+        with open(json_report_path, "r", encoding="utf-8") as f:
+            issues = json.load(f)
+
+        for idx, issue in enumerate(issues):
+            issue_id = f"issue_{idx}"
+            file_path = issue.get("file")
+            issue_description = issue.get("issue")
+
+            print(f"\nProcessing {issue_id} in {file_path}")
+
+            proposed_fix = self.propose_fix(file_path, issue_description)
+            approved = self.approval_agent.request_approval(issue_id, issue_description, proposed_fix)
+
+            if approved:
+                self.apply_fix(file_path, proposed_fix)
+                print(f"[APPLIED] Fix applied to {file_path}")
+            else:
+                print(f"[SKIPPED] Fix skipped for {file_path}")
