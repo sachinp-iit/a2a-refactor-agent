@@ -25,7 +25,7 @@ if $HOME/.dotnet/tools/roslynator --version &> /dev/null; then
     echo "[Main] Roslynator CLI already installed."
 else
     echo "Installing Roslynator..."
-    $HOME/.dotnet/dotnet tool install -g Roslynator.DotNet.Cli --no-cache
+    $HOME/.dotnet/dotnet tool install -g Roslynator.DotNet.Cli --no-cache --version 0.10.0
 fi
 
 # Verify Roslynator installation
@@ -37,3 +37,7 @@ echo "[Main] Roslynator CLI installation complete."
 
 # Ensure PATH is exported for current session
 export PATH=$HOME/.dotnet:$HOME/.dotnet/tools:$PATH
+
+# Update shell profile to persist PATH
+echo "export DOTNET_ROOT=$HOME/.dotnet" >> $HOME/.bashrc
+echo "export PATH=\$PATH:\$HOME/.dotnet:\$HOME/.dotnet/tools" >> $HOME/.bashrc
