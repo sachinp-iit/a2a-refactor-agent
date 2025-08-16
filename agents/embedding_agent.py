@@ -35,21 +35,36 @@ class EmbeddingAgent:
         collection = self.chroma_client.get_or_create_collection(name=self.collection_name)
 
         for i, issue in enumerate(issues):
+            # inside the for loop over issues:
             issue_id = issue.get("id") or issue.get("ruleId") or str(uuid.uuid4())
+            severity = issue.get("severity") or issue.get("level") or "unknown"
+            message = issue.get("message", "")
+
+            # Extract file and line safely from SARIF-style locations
+            file = (
+                issue.get("file") or
+                issue.get("locations", [{}])[0].get("physicalLocation", {}).get("artifactLocation", {}).get("uri", "unknown")
+            )
+            
+            line = (
+                issue.get("line") or
+                issue.get("locations", [{}])[0].get("physicalLocation", {}).get("region", {}).get("startLine", -1)
+            )
+            
             metadata = {
-                "file": issue["file"],
                 "id": issue_id,
-                "severity": issue["severity"],
-                "message": issue["message"],
-                "line": issue["line"]
+                "file": file,
+                "severity": severity,
+                "message": message,
+                "line": line
             }
 
             # Construct verbose, contextual document text
             document_text = (
                 f"This is a code analysis issue with ID {issue_id}. "
-                f"It occurs in the file {issue.get('file', 'unknown')} on line {issue.get('line', -1)}. "
-                f"The severity of the issue is {issue.get('severity', 'unknown')}. "
-                f"The message describing the issue is: {issue.get('message', '')}. "
+                f"It occurs in the file {file} on line {line}. "
+                f"The severity of the issue is {severity}. "
+                f"The message describing the issue is: {message}. "
                 f"This might relate to C# compiler warnings or best practices violations."
             ).lower()
 
