@@ -26,28 +26,27 @@ class RoslynatorAgent:
     
         try:
             cmd = [
-                "roslynator", "analyze",
-                "--msbuild-path", os.path.dirname(shutil.which("dotnet")),
+                "roslynator", "analyze"
+            ] + [str(p) for p in project_files] + [
                 "--output", str(json_path),
-                "--output-format", "gitlab",
                 "--severity-level", "info",
-                "--report-suppressed-diagnostics"
-            ] + [str(p) for p in project_files]
+                "--verbosity", "d"
+            ]
     
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
             print(f"[RoslynatorAgent] Analysis complete. Report saved to {json_path}")
     
-            # Load GitLab format (JSON lines) and transform to list of dicts [{"file": "...", "issue": "..."}]
-            issues = []
+            # Load JSON report
             with open(json_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    if line.strip():
-                        gitlab_issue = json.loads(line)
-                        if "path" in gitlab_issue and "description" in gitlab_issue:
-                            issues.append({
-                                "file": gitlab_issue["path"],
-                                "issue": gitlab_issue["description"]
-                            })
+                report_data = json.load(f)
+    
+            # Transform to list of {"file":, "issue":}
+            issues = []
+            for diag in report_data.get("codeAnalysis", {}).get("diagnostics", []):
+                issues.append({
+                    "file": diag.get("filePath", ""),
+                    "issue": f"{diag.get('id', '')}: {diag.get('message', '')}"
+                })
     
             # Overwrite with transformed JSON
             with open(json_path, "w", encoding="utf-8") as f:
@@ -62,6 +61,7 @@ class RoslynatorAgent:
     
         except subprocess.CalledProcessError as e:
             print(f"[RoslynatorAgent] Roslynator analysis failed: {e.stderr}")
+            print(f"[Debug] STDOUT: {e.stdout}")
             return None
         except FileNotFoundError:
             print("[RoslynatorAgent] Roslynator CLI not found. Please install it first.")
