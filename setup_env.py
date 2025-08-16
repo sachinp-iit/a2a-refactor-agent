@@ -49,15 +49,21 @@ def main():
     # Verify .NET installation
     from shutil import which
     if which("dotnet") is None:
-        print("[Error] .NET SDK not found in PATH after installation!")
-        sys.exit(1)
+        print("[Error] .NET SDK not found in PATH after installation! Attempting direct path...")
+        if not os.path.exists(os.path.join(dotnet_root, "dotnet")):
+            print("[Error] .NET SDK binary not found at expected location!")
+            sys.exit(1)
+        print("[Setup] .NET SDK found at direct path.")
     else:
         print("[Setup] .NET SDK is ready!")
 
     # Verify Roslynator installation
     if which("roslynator") is None:
-        print("[Error] Roslynator not found in PATH after installation!")
-        sys.exit(1)
+        print("[Error] Roslynator not found in PATH after installation! Attempting direct path...")
+        if not os.path.exists(os.path.join(dotnet_tools, "roslynator")):
+            print("[Error] Roslynator binary not found at expected location!")
+            sys.exit(1)
+        print("[Setup] Roslynator found at direct path.")
     else:
         print("[Setup] Roslynator is ready!")
 
