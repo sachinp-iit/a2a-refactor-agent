@@ -13,36 +13,58 @@ class QueryAgent:
 
     def search_issues(self, query: str, top_k: int = 5):
         collection = self.client.get_collection(self.collection_name)
+    
+        # safe get + flatten
         all_data = collection.get(include=["documents", "metadatas"])
-        issues = all_data["metadatas"]
-
+        metadatas_batches = all_data.get("metadatas", []) or []
+        documents_batches = all_data.get("documents", []) or []
+        metadatas = [m for batch in metadatas_batches for m in batch]
+        documents = [d for batch in documents_batches for d in batch]
+    
+        from collections import Counter
         q = query.lower()
-        filtered = issues
-
+    
+        # rule-based -> file counts
+        if "file with high" in q or "most issues" in q or "file with most" in q:
+            files = [m.get("file", "unknown") for m in metadatas]
+            top_files = Counter(files).most_common(top_k)
+            return [{"file": f, "count": c} for f, c in top_files]
+    
+        # rule-based severity filtering (if mentioned)
+        filtered_meta_ids = None
         if "warning" in q:
-            filtered = [i for i in issues if i.get("severity", "").lower() == "warning"]
+            filtered_meta_ids = {i for i,m in enumerate(metadatas) if m.get("severity","").lower()=="warning"}
         elif "error" in q or "high severity" in q:
-            filtered = [i for i in issues if i.get("severity", "").lower() in ["error", "high"]]
-        elif "file with high number of issues" in q:
-            files = [i.get("file", "unknown") for i in issues]
-            counts = Counter(files)
-            top_files = counts.most_common(top_k)
-            return {"query": query, "top_files": top_files, "total_issues": len(issues)}
-
-        if not filtered:
-            return {"query": query, "top_matches": [], "total_issues": len(issues)}
-
+            filtered_meta_ids = {i for i,m in enumerate(metadatas) if m.get("severity","").lower() in ("error","high")}
+    
+        # semantic search
         query_embedding = self.model.encode([query])[0].tolist()
-        results = collection.query(query_embeddings=[query_embedding], n_results=top_k)
-
-        formatted_results = []
-        for doc, meta in zip(results["documents"][0], results["metadatas"][0]):
-            formatted_results.append({
+        results = collection.query(
+            query_embeddings=[query_embedding],
+            n_results=top_k,
+            include=["documents", "metadatas"]
+        )
+    
+        docs = (results.get("documents") or [[]])[0]
+        metas = (results.get("metadatas") or [[]])[0]
+    
+        out = []
+        for doc, meta in zip(docs, metas):
+            # if a severity filter was set, skip non-matching entries
+            if filtered_meta_ids is not None:
+                # find index of this meta in the flattened metadatas list
+                # (match by file+line+message fallback when ids not present)
+                if meta not in metadatas:
+                    continue
+                idx = metadatas.index(meta)
+                if idx not in filtered_meta_ids:
+                    continue
+            out.append({
                 "file": meta.get("file", "unknown"),
                 "line": meta.get("line", -1),
                 "severity": meta.get("severity", "unknown"),
                 "message": meta.get("message", ""),
                 "match": doc
             })
-
-        return {"query": query, "top_matches": formatted_results, "total_issues": len(filtered)}
+    
+        return out
