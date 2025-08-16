@@ -38,17 +38,21 @@ def main():
     os.environ["DOTNET_ROOT"] = dotnet_root
     os.environ["PATH"] = f"{dotnet_root}{os.pathsep}{dotnet_tools}{os.pathsep}{os.environ.get('PATH', '')}"
 
-    # Verify Roslynator installation
+    # Force PATH update in current Python session
+    os.putenv("PATH", os.environ["PATH"])
+
+    # Verify .NET installation
     from shutil import which
+    if which("dotnet") is None:
+        print("[Error] .NET SDK not found in PATH after installation!")
+        sys.exit(1)
+    else:
+        print("[Setup] .NET SDK is ready!")
+
+    # Verify Roslynator installation
     if which("roslynator") is None:
-        print("[Error] Roslynator not found in PATH after installation! Attempting to reload environment...")
-        # Run shell command to update PATH in current session
-        os.system(f"export PATH={dotnet_root}:{dotnet_tools}:$PATH")
-        if which("roslynator") is None:
-            print("[Error] Roslynator still not found! Please ensure .NET and Roslynator are correctly installed.")
-            sys.exit(1)
-        else:
-            print("[Setup] Roslynator is ready after PATH reload!")
+        print("[Error] Roslynator not found in PATH after installation!")
+        sys.exit(1)
     else:
         print("[Setup] Roslynator is ready!")
 
