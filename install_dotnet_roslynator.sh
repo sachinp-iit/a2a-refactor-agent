@@ -19,9 +19,13 @@ if ! command -v dotnet &> /dev/null; then
 fi
 echo "[Main] .NET SDK installation complete."
 
-# Install Roslynator
-echo "Installing Roslynator..."
-$HOME/.dotnet/dotnet tool install -g Roslynator.DotNet.Cli --version 0.8.4
+# Check if Roslynator is already installed
+if command -v roslynator &> /dev/null; then
+    echo "[Main] Roslynator CLI already installed."
+else
+    echo "Installing Roslynator..."
+    $HOME/.dotnet/dotnet tool install -g Roslynator.DotNet.Cli
+fi
 
 # Verify Roslynator installation
 if command -v roslynator &> /dev/null; then
