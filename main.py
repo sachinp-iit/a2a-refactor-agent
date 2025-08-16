@@ -5,6 +5,10 @@ import subprocess
 from chromadb import Client
 from chromadb.config import Settings
 
+# Suppress TensorFlow CUDA warnings
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+os.environ["XLA_FLAGS"] = "--xla_gpu_cuda_data_dir=/dev/null"
+
 # --- keep all agents imports ---
 from agents.repo_manager import RepoManager
 from agents.roslynator_agent import RoslynatorAgent
@@ -12,10 +16,6 @@ from agents.embedding_agent import EmbeddingAgent
 from agents.query_agent import QueryAgent
 from agents.refactor_agent import RefactorAgent
 from agents.approval_agent import ApprovalAgent
-
-# Supressing the warnings
-os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 # --- add globals ---
 DB_DIR = "chroma_db"
