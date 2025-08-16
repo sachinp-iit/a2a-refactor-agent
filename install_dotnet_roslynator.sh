@@ -12,7 +12,7 @@ if ! command -v dotnet &> /dev/null; then
     chmod +x dotnet-install.sh
     ./dotnet-install.sh --version 8.0.100
 else
-    echo ".NET already installed: $(dotnet --version)"
+    echo ".NET SDK already installed."
 fi
 
 # Install Roslynator only if not present
@@ -20,9 +20,5 @@ if ! command -v roslynator &> /dev/null; then
     echo "Installing Roslynator..."
     ~/.dotnet/dotnet tool install -g Roslynator.DotNet.Cli
 else
-    echo "Roslynator already installed: $(roslynator --version)"
+    echo "Roslynator already installed."
 fi
-
-# Verify
-dotnet --version
-roslynator --version
