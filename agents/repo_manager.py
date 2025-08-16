@@ -1,5 +1,8 @@
 import os
 import subprocess
+import shutil
+from agents.roslynator_agent import RoslynatorAgent
+from agents.embedding_agent import EmbeddingAgent
 
 class RepoManager:
     def __init__(self, base_path="workspace"):
@@ -58,3 +61,54 @@ class RepoManager:
                 if file.lower().endswith(".cs"):
                     csharp_files.append(os.path.join(root, file))
         return csharp_files
+
+    def clone_and_analyze(self):
+        """
+        Full pipeline: clone repo, analyze with Roslynator, store embeddings.
+        """
+        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+        DB_DIR = os.path.join(BASE_DIR, "chroma_db")
+
+        repo_url = input("Enter the GitHub repo URL to clone: ").strip()
+        if not repo_url:
+            print("Repository URL is required.")
+            return None, None, None
+
+        repo_path = self.clone_repo(repo_url)
+        cs_files = self.list_csharp_files(repo_path)
+        if not cs_files:
+            print("No C# files found in the repository.")
+            return repo_path, None, None
+
+        # Ensure Roslynator CLI installed
+        if shutil.which("roslynator") is None:
+            if not os.path.exists("install_dotnet_roslynator.sh"):
+                print("[RepoManager] ERROR: install_dotnet_roslynator.sh not found.")
+                return repo_path, None, None
+            subprocess.run(["bash", "install_dotnet_roslynator.sh"], check=True)
+            dotnet_root = os.path.expanduser("~/.dotnet")
+            dotnet_tools = os.path.expanduser("~/.dotnet/tools")
+            path_parts = os.environ["PATH"].split(":")
+            if dotnet_root not in path_parts:
+                os.environ["PATH"] += f":{dotnet_root}"
+            if dotnet_tools not in path_parts:
+                os.environ["PATH"] += f":{dotnet_tools}"
+            os.environ["DOTNET_ROOT"] = dotnet_root
+
+        roslynator_agent = RoslynatorAgent(
+            repo_path=repo_path,
+            output_dir=os.path.join(repo_path, "analysis")
+        )
+        json_report_path = roslynator_agent.run_analysis()
+        if not json_report_path:
+            print("Roslynator analysis failed or no report generated.")
+            return repo_path, None, None
+
+        embedding_agent = EmbeddingAgent(
+            json_report_path=json_report_path,
+            db_dir=DB_DIR
+        )
+        embedding_agent.store_embeddings()
+
+        print("Clone and analysis complete.")
+        return repo_path, json_report_path, DB_DIR
