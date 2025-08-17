@@ -24,8 +24,9 @@ class QueryAgent:
                     "file": m.get("file", "unknown"),
                     "line": m.get("line", -1),
                     "severity": m.get("severity", "unknown"),
-                    "issue": m.get("message", "unknown"),
-                    "id": m.get("id", "unknown")
+                    "issue": m.get("issue", "unknown"),
+                    "id": m.get("id", "unknown"),
+                    "column": m.get("column","unknown")
                 })
         return issues
 
