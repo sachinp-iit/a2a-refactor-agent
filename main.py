@@ -28,20 +28,13 @@ try:
 except ValueError:
     SHARED_CHROMA_CLIENT = Client(Settings())
 
-def is_chromadb_ready(db_dir: str, collection_name: str = COLLECTION_NAME) -> bool:
+def is_chromadb_ready(client, collection_name=COLLECTION_NAME) -> bool:
     try:
-        if db_dir == DB_DIR:
-            client = SHARED_CHROMA_CLIENT
-        else:
-            try:
-                client = Client(Settings(persist_directory=db_dir))
-            except ValueError:
-                client = SHARED_CHROMA_CLIENT
         col = client.get_collection(collection_name)
         return col.count() > 0
     except Exception:
         return False
-
+        
 def main_menu():
     repo_manager = RepoManager()
     query_agent = None
