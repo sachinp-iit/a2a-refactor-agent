@@ -22,11 +22,14 @@ DB_DIR = "chroma_db"
 COLLECTION_NAME = "roslynator_issues"
 
 def is_chromadb_ready(db_dir: str, collection_name: str = COLLECTION_NAME) -> bool:
-    """
-    Checks if a ChromaDB collection exists and has data.
-    """
     try:
-        client = Client(Settings(persist_directory=db_dir))
+        if db_dir == DB_DIR:
+            client = SHARED_CHROMA_CLIENT
+        else:
+            try:
+                client = Client(Settings(persist_directory=db_dir))
+            except ValueError:
+                client = SHARED_CHROMA_CLIENT
         col = client.get_collection(collection_name)
         return col.count() > 0
     except Exception:
