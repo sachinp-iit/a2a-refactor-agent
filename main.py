@@ -19,7 +19,10 @@ from agents.approval_agent import ApprovalAgent
 
 # --- add globals ---
 DB_DIR = "chroma_db"
-COLLECTION_NAME = "roslynator_issues"
+try:
+    SHARED_CHROMA_CLIENT = Client(Settings(persist_directory=DB_DIR))
+except ValueError:
+    SHARED_CHROMA_CLIENT = Client(Settings())
 
 def is_chromadb_ready(db_dir: str, collection_name: str = COLLECTION_NAME) -> bool:
     try:
@@ -95,6 +98,7 @@ def main_menu():
             if query_agent is None:
                 if repo_path and is_chromadb_ready(os.path.join(repo_path, "chroma_db")):
                     query_agent = QueryAgent(db_dir=os.path.join(repo_path, "chroma_db"))
+                    query_agent.chroma_client = SHARED_CHROMA_CLIENT
                 elif is_chromadb_ready(DB_DIR):
                     query_agent = QueryAgent(db_dir=DB_DIR)
                     repo_path = DB_DIR
@@ -120,6 +124,7 @@ def main_menu():
             if query_agent is None:
                 if repo_path and is_chromadb_ready(os.path.join(repo_path, "chroma_db")):
                     query_agent = QueryAgent(db_dir=os.path.join(repo_path, "chroma_db"))
+                    query_agent.chroma_client = SHARED_CHROMA_CLIENT
                 elif is_chromadb_ready(DB_DIR):
                     query_agent = QueryAgent(db_dir=DB_DIR)
                     repo_path = DB_DIR
