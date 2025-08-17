@@ -2,12 +2,16 @@ from chromadb import Client
 from chromadb.config import Settings
 from sentence_transformers import SentenceTransformer
 from collections import Counter
+from main import SHARED_CHROMA_CLIENT
 
 class QueryAgent:
     def __init__(self, db_dir: str, collection_name: str = "roslynator_issues"):
         self.db_dir = db_dir
         self.collection_name = collection_name
-        self.chroma_client = Client(Settings(persist_directory=db_dir))
+        try:
+            self.chroma_client = Client(Settings(persist_directory=db_dir))
+        except ValueError:
+            self.chroma_client = SHARED_CHROMA_CLIENT
         self.model = SentenceTransformer("all-MiniLM-L6-v2")
 
     def _get_all_issues(self):
