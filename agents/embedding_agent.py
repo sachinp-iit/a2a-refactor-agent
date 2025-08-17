@@ -4,7 +4,6 @@ from pathlib import Path
 from chromadb import Client
 from chromadb.config import Settings
 from sentence_transformers import SentenceTransformer
-from main import SHARED_CHROMA_CLIENT
 
 class EmbeddingAgent:
     def __init__(self, json_report_path: str, db_dir: str, collection_name: str = "roslynator_issues"):
