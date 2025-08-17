@@ -10,52 +10,57 @@ class QueryAgent:
         self.chroma_client = Client(Settings(persist_directory=db_dir))
         self.model = SentenceTransformer("all-MiniLM-L6-v2")
 
-    def search_issues(self, query_text: str, top_k: int = 5):
-        """
-        Searches issues in ChromaDB based on a text query using semantic embeddings.
-        Returns top_k matching issues with file, message, severity, and similarity distance.
-        Only returns issues with severity 'error' or 'high'.
-        """
-        # Ensure collection exists
+    def _get_all_issues(self):
         collection = self.chroma_client.get_collection(self.collection_name)
         if collection.count() == 0:
+            return []
+        results = collection.get(include=["metadatas"])
+        return [m for m in results.get("metadatas", []) if isinstance(m, dict)]
+
+    def search_issues(self, query_text: str, top_k: int = 5):
+        query_text_l = query_text.lower().strip()
+        issues = self._get_all_issues()
+        if not issues:
             print("[QueryAgent] No issues found in the database.")
             return []
-    
-        # Generate embedding for the query
+
+        # --- Special query handling ---
+        if query_text_l in ("all", "show all issues", "list issues"):
+            return issues
+
+        if "how many" in query_text_l or "count" in query_text_l:
+            return [{"summary": f"Total issues: {len(issues)}"}]
+
+        if "categories" in query_text_l or "types" in query_text_l:
+            cats = Counter(i.get("id", "unknown") for i in issues)
+            return [{"summary": f"Issue categories: {dict(cats)}"}]
+
+        if "high severity" in query_text_l or "errors" in query_text_l:
+            return [i for i in issues if i.get("severity", "").lower() in ("high", "error")]
+
+        # --- Default semantic search ---
         query_embedding = self.model.encode([query_text])[0].tolist()
-    
-        # Perform similarity search
+        collection = self.chroma_client.get_collection(self.collection_name)
         results = collection.query(
             query_embeddings=[query_embedding],
             n_results=top_k,
-            include=["documents", "metadatas", "distances"]
+            include=["metadatas", "distances"]
         )
-    
+
         metadatas = results.get("metadatas", [[]])[0]
         distances = results.get("distances", [[]])[0]
-    
-        # Filter only valid metadata dicts with high severity or errors
-        filtered_indices = {
-            i for i, m in enumerate(metadatas)
-            if isinstance(m, dict) and m.get("severity", "").lower() in ("error", "high")
-        }
-    
-        # Build results list
-        clean_results = [
-            {
+        clean_results = []
+        for i, m in enumerate(metadatas):
+            if not isinstance(m, dict):
+                continue
+            clean_results.append({
                 "file": m.get("file", "unknown"),
-                "issue": m.get("message", "unknown"),
+                "line": m.get("line", "unknown"),
                 "severity": m.get("severity", "unknown"),
+                "issue": m.get("issue", m.get("message", "unknown")),
                 "distance": distances[i] if i < len(distances) else None
-            }
-            for i, m in enumerate(metadatas)
-            if i in filtered_indices and isinstance(m, dict)
-        ]
-    
-        # Sort by distance (closest match first)
-        clean_results.sort(key=lambda x: x["distance"])
-    
+            })
+        clean_results.sort(key=lambda x: x.get("distance", 1e9))
         return clean_results
 
     def query_issues(self):
@@ -67,17 +72,24 @@ class QueryAgent:
         if not results:
             print("No matching issues found.")
             return
-        print(f"\nTop {len(results)} matching issues:")
-        for i, res in enumerate(results, 1):
-            if "count" in res:
-                print(f"{i}. File: {res['file']} | Issues: {res['count']}")
-            else:
-                print(f"{i}. File: {res['file']}\n   Line: {res['line']}\n   Severity: {res['severity']}\n   Issue: {res['issue']}\n")
 
-    # Check if the ChromaDB collection exists and has data.    
+        # Pretty print
+        if "summary" in results[0]:
+            for r in results:
+                print(r["summary"])
+        else:
+            print(f"\nTop {len(results)} issues:")
+            for i, res in enumerate(results, 1):
+                print(
+                    f"{i}. File: {res.get('file','unknown')}\n"
+                    f"   Line: {res.get('line','unknown')}\n"
+                    f"   Severity: {res.get('severity','unknown')}\n"
+                    f"   Issue: {res.get('issue','unknown')}\n"
+                )
+
     def is_ready(self) -> bool:
         try:
-            col = self.client.get_collection(self.collection_name)
+            col = self.chroma_client.get_collection(self.collection_name)
             return col.count() > 0
         except Exception:
             return False
