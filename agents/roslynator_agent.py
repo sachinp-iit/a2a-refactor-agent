@@ -3,6 +3,7 @@ import subprocess
 import json
 from pathlib import Path
 import shutil
+import re
 
 class RoslynatorAgent:
     def __init__(self, repo_path: str, output_dir: str):
@@ -10,10 +11,23 @@ class RoslynatorAgent:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
+    def restore_packages(self, project_file: Path):
+        result = subprocess.run(
+            ["dotnet", "restore", str(project_file)],
+            capture_output=True,
+            text=True
+        )
+        if result.returncode != 0:
+            print(f"[RoslynatorAgent] Package restore failed for {project_file}")
+            print("STDERR:\n", result.stderr)
+            raise RuntimeError(f"Restore failed for {project_file}")
+        else:
+            print(f"[RoslynatorAgent] Packages restored successfully for {project_file}")
+
     def run_analysis(self):
         """
-        Runs Roslynator analysis on all C# files in the repo.
-        Output will be saved as roslynator_analysis.json inside output_dir.
+        Restores all NuGet packages then runs Roslynator analysis.
+        Output saved as roslynator_analysis.json inside output_dir.
         """
         print(f"[RoslynatorAgent] Running analysis on {self.repo_path}...")
     
@@ -21,6 +35,10 @@ class RoslynatorAgent:
         if not project_files:
             print("[RoslynatorAgent] No C# project or solution files found.")
             return None
+
+        # restore for all projects/solutions
+        for proj in project_files:
+            self.restore_packages(proj)
     
         text_path = self.output_dir / "roslynator_analysis.txt"
         json_path = self.output_dir / "roslynator_analysis.json"
@@ -37,7 +55,6 @@ class RoslynatorAgent:
                 f.write(result.stdout)
             print(f"[RoslynatorAgent] Analysis complete. Text report saved to {text_path}")
     
-            # Parse text report to JSON
             issues = self.parse_text_report_to_json(text_path)
     
             with open(json_path, "w", encoding="utf-8") as f:
