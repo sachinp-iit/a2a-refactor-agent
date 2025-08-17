@@ -51,7 +51,7 @@ class EmbeddingAgent:
               "file": issue["file"],
               "id": issue["id"],
               "severity": issue["severity"],
-              "issue": issue["issue"],
+              "message": issue["message"],
               "line": issue["line"]
             }
 
