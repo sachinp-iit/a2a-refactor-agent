@@ -2,7 +2,6 @@ from chromadb import Client
 from chromadb.config import Settings
 from sentence_transformers import SentenceTransformer
 from collections import Counter
-from main import SHARED_CHROMA_CLIENT
 
 class QueryAgent:
     def __init__(self, db_dir: str, collection_name: str = "roslynator_issues"):
