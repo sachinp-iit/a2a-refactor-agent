@@ -51,14 +51,15 @@ class EmbeddingAgent:
               "file": issue["file"],
               "id": issue["id"],
               "severity": issue["severity"],
-              "message": issue["message"],
-              "line": issue["line"]
+              "issue": issue["issue"],
+              "line": issue["line"],
+              "column": issue["column"]
             }
 
             document_text = (
                 f"Issue {issue_id} in file {metadata['file']} line {metadata['line']}. "
                 f"Severity: {metadata['severity']}. "
-                f"Message: {metadata['message']}"
+                f"Message: {metadata['issue']}"
             ).lower()
 
             embedding = self.model.encode([document_text])[0].tolist()
