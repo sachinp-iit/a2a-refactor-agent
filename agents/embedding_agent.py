@@ -10,7 +10,9 @@ class EmbeddingAgent:
         self.json_report_path = Path(json_report_path)
         self.db_dir = Path(db_dir)
         self.collection_name = collection_name
-        self.chroma_client = chroma_client or SHARED_CHROMA_CLIENT
+        if chroma_client is None:
+            raise ValueError("chroma_client must be provided")
+        self.chroma_client = chroma_client
         self.model = SentenceTransformer("all-MiniLM-L6-v2")
 
     def store_embeddings(self, clear_existing: bool = False):
