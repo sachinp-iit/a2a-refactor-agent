@@ -17,7 +17,17 @@ class QueryAgent:
         if collection.count() == 0:
             return []
         results = collection.get(include=["metadatas"])
-        return [m for m in results.get("metadatas", []) if isinstance(m, dict)]
+        issues = []
+        for m in results.get("metadatas", []):
+            if isinstance(m, dict):
+                issues.append({
+                    "file": m.get("file", "unknown"),
+                    "line": m.get("line", -1),
+                    "severity": m.get("severity", "unknown"),
+                    "issue": m.get("message", "unknown"),
+                    "id": m.get("id", "unknown")
+                })
+        return issues
 
     def search_issues(self, query_text: str, top_k: int = 5):
         query_text_l = query_text.lower().strip()
