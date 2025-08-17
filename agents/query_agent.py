@@ -4,10 +4,12 @@ from sentence_transformers import SentenceTransformer
 from collections import Counter
 
 class QueryAgent:
-    def __init__(self, db_dir: str, collection_name: str = "roslynator_issues"):
+    def __init__(self, db_dir: str, collection_name: str = "roslynator_issues", chroma_client=None):
         self.db_dir = db_dir
         self.collection_name = collection_name
-        self.chroma_client = SHARED_CHROMA_CLIENT
+        if chroma_client is None:
+            raise ValueError("chroma_client must be provided")
+        self.chroma_client = chroma_client
         self.model = SentenceTransformer("all-MiniLM-L6-v2")
 
     def _get_all_issues(self):
