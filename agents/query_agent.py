@@ -8,10 +8,7 @@ class QueryAgent:
     def __init__(self, db_dir: str, collection_name: str = "roslynator_issues"):
         self.db_dir = db_dir
         self.collection_name = collection_name
-        try:
-            self.chroma_client = Client(Settings(persist_directory=db_dir))
-        except ValueError:
-            self.chroma_client = SHARED_CHROMA_CLIENT
+        self.chroma_client = SHARED_CHROMA_CLIENT
         self.model = SentenceTransformer("all-MiniLM-L6-v2")
 
     def _get_all_issues(self):
@@ -29,6 +26,10 @@ class QueryAgent:
             return []
 
         # --- Special query handling ---
+        if "which agent" in query_text_l or "agent" in query_text_l:
+            agents = [i.get("file", "unknown") for i in issues]
+            return [{"summary": f"Issues are present in agents: {list(set(agents))}"}]
+        
         if query_text_l in ("all", "show all issues", "list issues"):
             return issues
 
@@ -61,7 +62,7 @@ class QueryAgent:
                 "file": m.get("file", "unknown"),
                 "line": m.get("line", "unknown"),
                 "severity": m.get("severity", "unknown"),
-                "issue": m.get("issue", m.get("message", "unknown")),
+                "issue": m.get("message", "unknown"),
                 "distance": distances[i] if i < len(distances) else None
             })
         clean_results.sort(key=lambda x: x.get("distance", 1e9))
