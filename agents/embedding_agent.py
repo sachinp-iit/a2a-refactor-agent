@@ -33,8 +33,12 @@ class EmbeddingAgent:
 
         collection = self.chroma_client.get_or_create_collection(name=self.collection_name)
 
-        existing_ids = set(collection.get()["ids"]) if collection.count() > 0 else set()
+        existing_ids = set()
+        if collection.count() > 0:
+            ids_resp = collection.get(include=["ids"])
+            existing_ids = set(ids_resp.get("ids", []))
 
+        inserted = 0        
         for i, issue in enumerate(issues):
             issue_id = issue.get("id") or issue.get("ruleId") or str(uuid.uuid4())
             unique_key = f"issue_{issue_id}"
@@ -64,5 +68,6 @@ class EmbeddingAgent:
                 ids=[unique_key],
                 embeddings=[embedding]
             )
+            inserted += 1
 
-        print(f"[EmbeddingAgent] Stored {len(issues)} new issues (duplicates skipped).")
+        print(f"[EmbeddingAgent] Stored {inserted} new issues (duplicates skipped).")
