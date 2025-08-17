@@ -4,13 +4,17 @@ from pathlib import Path
 from chromadb import Client
 from chromadb.config import Settings
 from sentence_transformers import SentenceTransformer
+from main import SHARED_CHROMA_CLIENT
 
 class EmbeddingAgent:
     def __init__(self, json_report_path: str, db_dir: str, collection_name: str = "roslynator_issues"):
         self.json_report_path = Path(json_report_path)
         self.db_dir = Path(db_dir)
         self.collection_name = collection_name
-        self.chroma_client = Client(Settings(persist_directory=str(self.db_dir)))
+        try:
+            self.chroma_client = Client(Settings(persist_directory=str(self.db_dir)))
+        except ValueError:
+            self.chroma_client = SHARED_CHROMA_CLIENT
         self.model = SentenceTransformer("all-MiniLM-L6-v2")
 
     def store_embeddings(self, clear_existing: bool = False):
