@@ -48,11 +48,11 @@ class EmbeddingAgent:
                 continue  # skip duplicate
 
             metadata = {
-                "file": issue.get("file", "unknown"),
-                "id": issue_id,
-                "severity": issue.get("severity", "unknown"),
-                "message": issue.get("message", ""),
-                "line": issue.get("line", -1)
+              "file": issue["file"],
+              "id": issue["id"],
+              "severity": issue["severity"],
+              "message": issue["message"],
+              "line": issue["line"]
             }
 
             document_text = (
