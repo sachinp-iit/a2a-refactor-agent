@@ -20,7 +20,7 @@ from agents.approval_agent import ApprovalAgent
 
 # --- Globals ---
 DB_DIR = "chroma_db"
-COLLECTION_NAME = "code_issues"  # Define a default collection name
+COLLECTION_NAME = "roslynator_issues"  # Define a default collection name
 
 # Initialize shared Chroma client
 try:
