@@ -17,6 +17,7 @@ from agents.embedding_agent import EmbeddingAgent
 from agents.query_agent import QueryAgent
 from agents.refactor_agent import RefactorAgent
 from agents.approval_agent import ApprovalAgent
+from agents.reporting_agent import ReportingAgent
 
 # --- Globals ---
 DB_DIR = "chroma_db"
@@ -45,9 +46,10 @@ def main_menu():
         print("1. Clone GitHub repo and run Roslynator analysis")
         print("2. Query code issues by keyword")
         print("3. Run approval and auto-refactor loop")
-        print("4. Exit")
+        print("4. Show Roslynator report")
+        print("5. Exit")
 
-        choice = input("Select an option [1-4]: ").strip()
+        choice = input("Select an option [1-5]: ").strip()
 
         if choice == "1":
             repo_url = input("Enter the GitHub repo URL to clone: ").strip()
@@ -155,10 +157,19 @@ def main_menu():
                     print(f"[SKIPPED] Fix skipped for {file_path}")
 
         elif choice == "4":
+            if not repo_path:
+                print("No repository analyzed yet.")
+                continue
+            report_path = os.path.join(repo_path, "analysis", "roslynator_analysis.json")
+            reporting_agent = ReportingAgent(report_path)
+            reporting_agent.show_all()
+            
+        elif choice == "5":
             print("Exiting. Goodbye!")
             break
+            
         else:
-            print("Invalid option. Please enter 1, 2, 3 or 4.")
+            print("Invalid option. Please enter 1, 2, 3, 4 or 5.")
 
 if __name__ == "__main__":
     main_menu()
