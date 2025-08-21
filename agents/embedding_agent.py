@@ -39,28 +39,32 @@ class EmbeddingAgent:
             ids_resp = collection.get(include=["ids"])
             existing_ids = set(ids_resp.get("ids", []))
 
-        inserted = 0        
+        inserted = 0
         for i, issue in enumerate(issues):
+            # --- Ensure globally unique key (file + line + ruleId) ---
             issue_id = issue.get("id") or issue.get("ruleId") or str(uuid.uuid4())
-            unique_key = f"issue_{issue_id}"
+            file_part = issue.get("file", "unknown")
+            line_part = issue.get("line", -1)
+            unique_key = f"{issue_id}:{file_part}:{line_part}"
 
             if unique_key in existing_ids:
                 continue  # skip duplicate
 
             metadata = {
-              "file": issue["file"],
-              "id": issue["id"],
-              "severity": issue["severity"],
-              "issue": issue["issue"],
-              "line": issue["line"],
-              "column": issue["column"]
+                "file": file_part,
+                "id": issue_id,
+                "severity": issue.get("severity", "unknown"),
+                "issue": issue.get("issue") or issue.get("message", "unknown"),
+                "line": line_part,
+                "column": issue.get("column", -1),
             }
 
+            # --- Keep identifiers’ case intact ---
             document_text = (
-                f"Issue {issue_id} in file {metadata['file']} line {metadata['line']}. "
+                f"Issue {metadata['id']} in file {metadata['file']} line {metadata['line']}. "
                 f"Severity: {metadata['severity']}. "
                 f"Message: {metadata['issue']}"
-            ).lower()
+            )
 
             embedding = self.model.encode([document_text])[0].tolist()
 
@@ -68,7 +72,7 @@ class EmbeddingAgent:
                 documents=[document_text],
                 metadatas=[metadata],
                 ids=[unique_key],
-                embeddings=[embedding]
+                embeddings=[embedding],
             )
             inserted += 1
 
