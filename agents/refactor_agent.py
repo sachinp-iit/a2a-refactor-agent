@@ -4,8 +4,7 @@ from openai import OpenAI
 from agents.approval_agent import ApprovalAgent
 
 class RefactorAgent:
-    def __init__(self, api_key: str):
-        os.environ["OPENAI_API_KEY"] = api_key
+    def __init__(self):
         self.client = OpenAI()
         self.approval_agent = ApprovalAgent()
 
