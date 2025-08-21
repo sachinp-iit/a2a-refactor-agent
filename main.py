@@ -116,45 +116,13 @@ def main_menu():
                 print(f"{i}. File: {res.get('file')}\n   Issue: {res.get('issue')}\n")
 
         elif choice == "3":
-            if query_agent is None:
-                repo_db_dir = os.path.join(repo_path, "chroma_db") if repo_path else DB_DIR
-                if is_chromadb_ready(SHARED_CHROMA_CLIENT):
-                    query_agent = QueryAgent(db_dir=repo_db_dir, chroma_client=SHARED_CHROMA_CLIENT)
-                    repo_path = repo_path or DB_DIR
-                else:
-                    print("No analysis found. Please run clone and analysis first.")
-                    continue
-
-            json_report_path = os.path.join(repo_path, "analysis", "report.json")
-            if not os.path.exists(json_report_path):
-                print("No analysis report found for approval loop.")
+            if not repo_path:
+                print("No repository analyzed yet.")
                 continue
-
-            with open(json_report_path, "r", encoding="utf-8") as f:
-                issues = json.load(f)
-
-            refactor_agent = RefactorAgent(api_key=os.environ.get("OPENAI_API_KEY", ""))
-            approval_agent = ApprovalAgent()
-
-            for idx, issue in enumerate(issues):
-                issue_id = f"issue_{idx}"
-                file_path = issue.get("file")
-                issue_description = issue.get("issue")
-
-                if not file_path or not os.path.exists(file_path):
-                    print(f"[SKIPPED] Invalid file path for {issue_id}")
-                    continue
-
-                print(f"\nProcessing {issue_id} in {file_path}")
-
-                proposed_fix = refactor_agent.propose_fix(file_path, issue_description)
-                approved = approval_agent.request_approval(issue_id, issue_description, proposed_fix)
-
-                if approved:
-                    refactor_agent.apply_fix(file_path, proposed_fix)
-                    print(f"[APPLIED] Fix applied to {file_path}")
-                else:
-                    print(f"[SKIPPED] Fix skipped for {file_path}")
+        
+            json_report_path = os.path.join(repo_path, "analysis", "roslynator_analysis.json")
+            refactor_agent = RefactorAgent()
+            refactor_agent.approval_and_refactor_loop(json_report_path)
 
         elif choice == "4":
             if not repo_path:
