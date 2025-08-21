@@ -31,53 +31,86 @@ class QueryAgent:
         return issues
 
     def search_issues(self, query_text: str, top_k: int = 5):
-        query_text_l = query_text.lower().strip()
-        issues = self._get_all_issues()
-        if not issues:
+        query_text_l = (query_text or "").lower().strip()
+    
+        # Access collection once
+        collection = self.chroma_client.get_collection(self.collection_name)
+        if collection.count() == 0:
             print("[QueryAgent] No issues found in the database.")
             return []
-
-        # --- Special query handling ---
-        if "which agent" in query_text_l or "agent" in query_text_l:
-            agents = [i.get("file", "unknown") for i in issues]
-            return [{"summary": f"Issues are present in agents: {list(set(agents))}"}]
-        
+    
+        # Load all metadatas for special queries
+        all_metas = collection.get(include=["metadatas"]).get("metadatas", [])
+    
+        def pick(meta: dict, keys, default=""):
+            for k in keys:
+                if not isinstance(meta, dict):
+                    continue
+                v = meta.get(k)
+                if v is None:
+                    continue
+                if isinstance(v, str):
+                    if v.strip():
+                        return v
+                else:
+                    return v
+            return default
+    
+        issues = [
+            {
+                "file": pick(m, ["file"]),
+                "line": pick(m, ["line"], default=-1),
+                "severity": pick(m, ["severity"]),
+                "issue": pick(m, ["issue", "message"]),
+                "id": pick(m, ["id"]),
+                "column": pick(m, ["column"], default=-1),
+            }
+            for m in all_metas
+            if isinstance(m, dict)
+        ]
+    
+        # --- Special query handling (return shape compatible with main.py) ---
+        if "which agent" in query_text_l or query_text_l == "agent" or " agent " in f" {query_text_l} ":
+            unique_files = sorted(set(i["file"] for i in issues if i["file"]))
+            return [{"file": "(summary)", "issue": f"Issues found in files: {unique_files}"}]
+    
         if query_text_l in ("all", "show all issues", "list issues"):
             return issues
-
-        if "how many" in query_text_l or "count" in query_text_l:
-            return [{"summary": f"Total issues: {len(issues)}"}]
-
+    
+        if "how many" in query_text_l or "count" in query_text_l or query_text_l == "total":
+            return [{"file": "(summary)", "issue": f"Total issues: {len(issues)}"}]
+    
         if "categories" in query_text_l or "types" in query_text_l:
-            cats = Counter(i.get("id", "unknown") for i in issues)
-            return [{"summary": f"Issue categories: {dict(cats)}"}]
-
-        if "high severity" in query_text_l or "errors" in query_text_l:
-            return [i for i in issues if i.get("severity", "").lower() in ("high", "error")]
-
+            cats = Counter(i["id"] for i in issues if i["id"])
+            return [{"file": "(summary)", "issue": f"Issue categories: {dict(cats)}"}]
+    
+        if "high severity" in query_text_l or "errors" in query_text_l or "error" in query_text_l:
+            return [i for i in issues if str(i["severity"]).lower() in ("error", "high")]
+    
         # --- Default semantic search ---
         query_embedding = self.model.encode([query_text])[0].tolist()
-        collection = self.chroma_client.get_collection(self.collection_name)
         results = collection.query(
             query_embeddings=[query_embedding],
             n_results=top_k,
-            include=["metadatas", "distances"]
+            include=["metadatas", "distances"],
         )
-
+    
         metadatas = results.get("metadatas", [[]])[0]
         distances = results.get("distances", [[]])[0]
+    
         clean_results = []
         for i, m in enumerate(metadatas):
             if not isinstance(m, dict):
                 continue
             clean_results.append({
-                "file": m.get("file", "unknown"),
-                "line": m.get("line", "unknown"),
-                "severity": m.get("severity", "unknown"),
-                "issue": m.get("message", "unknown"),
-                "distance": distances[i] if i < len(distances) else None
+                "file": pick(m, ["file"]),
+                "line": pick(m, ["line"], default=-1),
+                "severity": pick(m, ["severity"]),
+                "issue": pick(m, ["issue", "message"]),
+                "distance": distances[i] if i < len(distances) else None,
             })
-        clean_results.sort(key=lambda x: x.get("distance", 1e9))
+    
+        clean_results.sort(key=lambda x: (x.get("distance") is None, x.get("distance", 0)))
         return clean_results
 
     def query_issues(self):
