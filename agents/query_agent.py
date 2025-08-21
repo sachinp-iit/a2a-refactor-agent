@@ -23,71 +23,42 @@ class QueryAgent:
                 issues.append({
                     "file": m.get("file", "unknown"),
                     "line": m.get("line", -1),
+                    "column": m.get("column", -1),
                     "severity": m.get("severity", "unknown"),
-                    "issue": m.get("issue", "unknown"),
+                    "issue": m.get("issue") or m.get("message", "unknown"),
                     "id": m.get("id", "unknown"),
-                    "column": m.get("column","unknown")
                 })
         return issues
 
     def search_issues(self, query_text: str, top_k: int = 5):
         query_text_l = (query_text or "").lower().strip()
-    
-        # Access collection once
         collection = self.chroma_client.get_collection(self.collection_name)
-        total = collection.count()
         if collection.count() == 0:
             print("[QueryAgent] No issues found in the database.")
-            return []    
+            return []
         
-        # Load all metadatas for special queries (fetch all, not truncated)
-        all_metas = collection.get(include=["metadatas"], limit=total).get("metadatas", [])
-    
-        def pick(meta: dict, keys, default=""):
-            for k in keys:
-                if not isinstance(meta, dict):
-                    continue
-                v = meta.get(k)
-                if v is None:
-                    continue
-                if isinstance(v, str):
-                    if v.strip():
-                        return v
-                else:
-                    return v
-            return default
-    
-        issues = [
-            {
-                "file": pick(m, ["file"]),
-                "line": pick(m, ["line"], default=-1),
-                "severity": pick(m, ["severity"]),
-                "issue": pick(m, ["issue", "message"]),
-                "id": pick(m, ["id"]),
-                "column": pick(m, ["column"], default=-1),
-            }
-            for m in all_metas
-            if isinstance(m, dict)
-        ]
-    
-        # --- Special query handling (return shape compatible with main.py) ---
+        # Load all issues from collection
+        issues = self._get_all_issues()
+        total = len(issues)
+
+        # --- Special queries ---
         if "which agent" in query_text_l or query_text_l == "agent" or " agent " in f" {query_text_l} ":
             unique_files = sorted(set(i["file"] for i in issues if i["file"]))
             return [{"file": "(summary)", "issue": f"Issues found in files: {unique_files}"}]
-    
+
         if query_text_l in ("all", "show all issues", "list issues"):
             return issues
-    
+
         if "how many" in query_text_l or "count" in query_text_l or query_text_l == "total":
             return [{"file": "(summary)", "issue": f"Total issues: {total}"}]
-    
+
         if "categories" in query_text_l or "types" in query_text_l:
             cats = Counter(i["id"] for i in issues if i["id"])
             return [{"file": "(summary)", "issue": f"Issue categories: {dict(cats)}"}]
-    
+
         if "high severity" in query_text_l or "errors" in query_text_l or "error" in query_text_l:
             return [i for i in issues if str(i["severity"]).lower() in ("error", "high")]
-    
+
         # --- Default semantic search ---
         query_embedding = self.model.encode([query_text])[0].tolist()
         results = collection.query(
@@ -98,19 +69,21 @@ class QueryAgent:
     
         metadatas = results.get("metadatas", [[]])[0]
         distances = results.get("distances", [[]])[0]
-    
+
         clean_results = []
         for i, m in enumerate(metadatas):
             if not isinstance(m, dict):
                 continue
             clean_results.append({
-                "file": pick(m, ["file"]),
-                "line": pick(m, ["line"], default=-1),
-                "severity": pick(m, ["severity"]),
-                "issue": pick(m, ["issue", "message"]),
+                "file": m.get("file", "unknown"),
+                "line": m.get("line", -1),
+                "column": m.get("column", -1),
+                "severity": m.get("severity", "unknown"),
+                "issue": m.get("issue") or m.get("message", "unknown"),
+                "id": m.get("id", "unknown"),
                 "distance": distances[i] if i < len(distances) else None,
             })
-    
+
         clean_results.sort(key=lambda x: (x.get("distance") is None, x.get("distance", 0)))
         return clean_results
 
@@ -125,15 +98,15 @@ class QueryAgent:
             return
 
         # Pretty print
-        if "summary" in results[0]:
+        if results[0].get("file") == "(summary)":
             for r in results:
-                print(r["summary"])
+                print(r["issue"])
         else:
             print(f"\nTop {len(results)} issues:")
             for i, res in enumerate(results, 1):
                 print(
                     f"{i}. File: {res.get('file','unknown')}\n"
-                    f"   Line: {res.get('line','unknown')}\n"
+                    f"   Line: {res.get('line','unknown')}, Column: {res.get('column','unknown')}\n"
                     f"   Severity: {res.get('severity','unknown')}\n"
                     f"   Issue: {res.get('issue','unknown')}\n"
                 )
