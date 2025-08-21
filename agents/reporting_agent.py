@@ -1,13 +1,12 @@
+# agents/reporting_agent.py
 from agents.query_agent import QueryAgent
-from main import SHARED_CHROMA_CLIENT
 
 class ReportingAgent:
     def __init__(self, chroma_client, collection_name="roslynator_issues"):
-        self.query_agent = QueryAgent(
-            db_dir=db_dir,
-            collection_name=collection_name,
-            chroma_client=SHARED_CHROMA_CLIENT
-        )
+        if chroma_client is None:
+            raise ValueError("chroma_client must be provided")
+        # QueryAgent expects a db_dir arg but we only need the chroma_client here
+        self.query_agent = QueryAgent(db_dir="", collection_name=collection_name, chroma_client=chroma_client)
 
     def show_all(self):
         issues = self.query_agent._get_all_issues()
