@@ -16,7 +16,7 @@ class QueryAgent:
         collection = self.chroma_client.get_collection(self.collection_name)
         if collection.count() == 0:
             return []
-        results = collection.get(include=["metadatas"])
+        results = collection.get(include=["metadatas"], limit=None)
         issues = []
         for m in results.get("metadatas", []):
             if isinstance(m, dict):
@@ -37,10 +37,10 @@ class QueryAgent:
         collection = self.chroma_client.get_collection(self.collection_name)
         if collection.count() == 0:
             print("[QueryAgent] No issues found in the database.")
-            return []
-    
-        # Load all metadatas for special queries
-        all_metas = collection.get(include=["metadatas"]).get("metadatas", [])
+            return []    
+        
+        # Load all metadatas for special queries (fetch all, not truncated)
+        all_metas = collection.get(include=["metadatas"], limit=None).get("metadatas", [])
     
         def pick(meta: dict, keys, default=""):
             for k in keys:
