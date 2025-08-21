@@ -1,11 +1,12 @@
 from agents.query_agent import QueryAgent
+from main import SHARED_CHROMA_CLIENT
 
 class ReportingAgent:
     def __init__(self, chroma_client, collection_name="roslynator_issues"):
         self.query_agent = QueryAgent(
-            db_dir="",  # not needed since we pass chroma_client
+            db_dir=db_dir,
             collection_name=collection_name,
-            chroma_client=chroma_client
+            chroma_client=SHARED_CHROMA_CLIENT
         )
 
     def show_all(self):
