@@ -92,7 +92,7 @@ def main_menu():
         elif choice == "2":
             if query_agent is None:
                 repo_db_dir = os.path.join(repo_path, "chroma_db") if repo_path else DB_DIR
-                if is_chromadb_ready(repo_db_dir):
+                if is_chromadb_ready(SHARED_CHROMA_CLIENT):
                     query_agent = QueryAgent(db_dir=repo_db_dir, chroma_client=SHARED_CHROMA_CLIENT)
                     repo_path = repo_path or DB_DIR
                 else:
@@ -116,7 +116,7 @@ def main_menu():
         elif choice == "3":
             if query_agent is None:
                 repo_db_dir = os.path.join(repo_path, "chroma_db") if repo_path else DB_DIR
-                if is_chromadb_ready(repo_db_dir):
+                if is_chromadb_ready(SHARED_CHROMA_CLIENT):
                     query_agent = QueryAgent(db_dir=repo_db_dir, chroma_client=SHARED_CHROMA_CLIENT)
                     repo_path = repo_path or DB_DIR
                 else:
