@@ -55,20 +55,27 @@ C# file content:
         if not json_report_path or not os.path.exists(json_report_path):
             print("No analysis report available. Please run clone and analysis first.")
             return
-
+    
         with open(json_report_path, "r", encoding="utf-8") as f:
             issues = json.load(f)
-
+    
+        repo_root = os.path.dirname(os.path.dirname(json_report_path))
+    
         for idx, issue in enumerate(issues):
             issue_id = f"issue_{idx}"
-            file_path = issue.get("file")
+            relative_path = issue.get("file")
+            file_path = os.path.join(repo_root, relative_path) if relative_path else None
             issue_description = issue.get("issue")
-
+    
+            if not file_path or not os.path.exists(file_path):
+                print(f"[SKIPPED] Invalid file path for {issue_id}: {relative_path}")
+                continue
+    
             print(f"\nProcessing {issue_id} in {file_path}")
-
+    
             proposed_fix = self.propose_fix(file_path, issue_description)
             approved = self.approval_agent.request_approval(issue_id, issue_description, proposed_fix)
-
+    
             if approved:
                 self.apply_fix(file_path, proposed_fix)
                 print(f"[APPLIED] Fix applied to {file_path}")
