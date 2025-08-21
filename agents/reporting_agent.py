@@ -5,7 +5,7 @@ class ReportingAgent:
     def __init__(self, chroma_client, collection_name="roslynator_issues"):
         if chroma_client is None:
             raise ValueError("chroma_client must be provided")
-        # QueryAgent expects a db_dir arg but we only need the chroma_client here
+        # create QueryAgent with the shared chroma client
         self.query_agent = QueryAgent(db_dir="", collection_name=collection_name, chroma_client=chroma_client)
 
     def show_all(self):
