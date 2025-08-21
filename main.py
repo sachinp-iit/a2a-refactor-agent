@@ -128,8 +128,8 @@ def main_menu():
             if not repo_path:
                 print("No repository analyzed yet.")
                 continue
-            report_path = os.path.join(repo_path, "analysis", "roslynator_analysis.json")
-            reporting_agent = ReportingAgent(report_path)
+            # pass the shared Chroma client into ReportingAgent (do NOT pass a path string)
+            reporting_agent = ReportingAgent(chroma_client=SHARED_CHROMA_CLIENT)
             reporting_agent.show_all()
             
         elif choice == "5":
