@@ -22,8 +22,7 @@ class RoslynatorAgent:
             print(f"[RoslynatorAgent] Package restore failed for {project_file}")
             print(result.stdout)
             print(result.stderr)
-            raise RuntimeError(f"dotnet restore failed for {project_file}")
-        print(f"[RoslynatorAgent] Packages restored: {project_file}")
+            raise RuntimeError(f"dotnet restore failed for {project_file}")        
 
     def restore_all_packages(self, project_files):
         for proj in project_files:
