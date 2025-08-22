@@ -18,6 +18,7 @@ class EmbeddingAgent:
     def store_embeddings(self, clear_existing: bool = False):
         """
         Store issues from JSON report into ChromaDB using local embeddings.
+        Converts relative file paths to absolute paths.
         Optionally clears existing issues to avoid duplicates.
         """
         if not self.json_report_path.exists():
@@ -39,19 +40,25 @@ class EmbeddingAgent:
             ids_resp = collection.get(include=["ids"])
             existing_ids = set(ids_resp.get("ids", []))
 
+        # repo root = parent of analysis directory
+        repo_root = self.json_report_path.parent.parent
+
         inserted = 0
-        for i, issue in enumerate(issues):
-            # --- Ensure globally unique key (file + line + ruleId) ---
+        for issue in issues:
+            # --- Ensure globally unique key (id + file + line) ---
             issue_id = issue.get("id") or issue.get("ruleId") or str(uuid.uuid4())
-            file_part = issue.get("file", "unknown")
+            file_rel = issue.get("file", "unknown")
             line_part = issue.get("line", -1)
-            unique_key = f"{issue_id}:{file_part}:{line_part}"
+
+            # Resolve to absolute path
+            file_abs = str((repo_root / file_rel).resolve())
+            unique_key = f"{issue_id}:{file_abs}:{line_part}"
 
             if unique_key in existing_ids:
                 continue  # skip duplicate
 
             metadata = {
-                "file": file_part,
+                "file": file_abs,
                 "id": issue_id,
                 "severity": issue.get("severity", "unknown"),
                 "issue": issue.get("issue") or issue.get("message", "unknown"),
@@ -59,7 +66,6 @@ class EmbeddingAgent:
                 "column": issue.get("column", -1),
             }
 
-            # --- Keep identifiers’ case intact ---
             document_text = (
                 f"Issue {metadata['id']} in file {metadata['file']} line {metadata['line']}. "
                 f"Severity: {metadata['severity']}. "
