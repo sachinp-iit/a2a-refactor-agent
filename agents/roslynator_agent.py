@@ -12,7 +12,6 @@ class RoslynatorAgent:
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def restore_packages(self, project_file: Path):
-        print(f"[RoslynatorAgent] Restoring packages for: {project_file}")
         result = subprocess.run(
             ["dotnet", "restore", str(project_file)],
             capture_output=True,
