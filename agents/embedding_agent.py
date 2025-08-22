@@ -14,7 +14,7 @@ class EmbeddingAgent:
     ):
         if chroma_client is None:
             raise ValueError("chroma_client must be provided")
-        self.issues = issues or []
+        self.issues = issues if isinstance(issues, list) else []
         self.chroma_client = chroma_client
         self.collection_name = collection_name
         self.repo_root = repo_root
@@ -28,12 +28,6 @@ class EmbeddingAgent:
         return os.path.abspath(file_path)
 
     def store_embeddings(self, clear_existing: bool = False) -> int:
-        """
-        Store issues into ChromaDB using local embeddings.
-        - No JSON reading.
-        - Converts relative file paths to absolute using repo_root.
-        - Skips duplicates based on (ruleId/id + abs path + line).
-        """
         if not self.issues:
             print("[EmbeddingAgent] No issues provided.")
             return 0
@@ -46,12 +40,10 @@ class EmbeddingAgent:
 
         collection = self.chroma_client.get_or_create_collection(self.collection_name)
 
-        # Gather existing ids to prevent duplicates
         existing_ids = set()
         if collection.count() > 0:
             got = collection.get(include=["ids"])
             ids_field = got.get("ids", [])
-            # Chroma can return flat or nested lists; normalize
             for item in ids_field:
                 if isinstance(item, list):
                     existing_ids.update(item)
