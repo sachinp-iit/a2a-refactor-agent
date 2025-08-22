@@ -45,8 +45,8 @@ def main_menu():
         print("\n===== C# Auto-Refactor Agent Menu =====")
         print("1. Clone GitHub repo and run Roslynator analysis")
         print("2. Query code issues by keyword")
-        print("3. Run approval and auto-refactor loop")
-        print("4. Show Roslynator report")
+        print("3. Show Roslynator report")
+        print("4. Run approval and auto-refactor loop")        
         print("5. Exit")
 
         choice = input("Select an option [1-5]: ").strip()
@@ -119,18 +119,20 @@ def main_menu():
             if not repo_path:
                 print("No repository analyzed yet.")
                 continue
-        
-            json_report_path = os.path.join(repo_path, "analysis", "roslynator_analysis.json")
-            refactor_agent = RefactorAgent()
-            refactor_agent.approval_and_refactor_loop(json_report_path)
+            # pass the shared Chroma client into ReportingAgent (do NOT pass a path string)
+            reporting_agent = ReportingAgent(chroma_client=SHARED_CHROMA_CLIENT)
+            reporting_agent.show_all()
 
         elif choice == "4":
             if not repo_path:
                 print("No repository analyzed yet.")
                 continue
-            # pass the shared Chroma client into ReportingAgent (do NOT pass a path string)
-            reporting_agent = ReportingAgent(chroma_client=SHARED_CHROMA_CLIENT)
-            reporting_agent.show_all()
+        
+            refactor_agent = RefactorAgent(
+                chroma_client=SHARED_CHROMA_CLIENT,
+                repo_root=repo_path
+            )
+            refactor_agent.approval_and_refactor_loop()        
             
         elif choice == "5":
             print("Exiting. Goodbye!")
