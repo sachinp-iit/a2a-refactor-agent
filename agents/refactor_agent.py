@@ -1,17 +1,20 @@
 import os
-import json
 from openai import OpenAI
 from agents.approval_agent import ApprovalAgent
+from agents.query_agent import QueryAgent
 
 class RefactorAgent:
-    def __init__(self):
+    def __init__(self, chroma_client, repo_root, collection_name="roslynator_issues"):
         self.client = OpenAI()
         self.approval_agent = ApprovalAgent()
+        self.query_agent = QueryAgent(
+            db_dir=os.path.join(repo_root, "chroma_db"),
+            collection_name=collection_name,
+            chroma_client=chroma_client
+        )
+        self.repo_root = repo_root
 
     def propose_fix(self, file_path: str, issue_description: str):
-        """
-        Reads the C# file and uses GPT-4o-mini to propose a fix for the given issue.
-        """
         with open(file_path, "r", encoding="utf-8") as f:
             code_content = f.read()
 
@@ -28,7 +31,6 @@ Your task:
 C# file content:
 {code_content}
 """
-
         response = self.client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
@@ -41,23 +43,17 @@ C# file content:
         return response.choices[0].message.content
 
     def apply_fix(self, file_path: str, fixed_code: str):
-        """
-        Overwrites the original file with the fixed code.
-        """
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(fixed_code)
         return True
 
-    def approval_and_refactor_loop(self, repo_root: str):
+    def approval_and_refactor_loop(self):
         issues = self.query_agent._get_all_issues()
-        if not issues:
-            print("No issues found in ChromaDB.")
-            return
 
         for idx, issue in enumerate(issues):
             issue_id = f"issue_{idx}"
             relative_path = issue.get("file")
-            file_path = os.path.join(repo_root, relative_path) if relative_path else None
+            file_path = os.path.join(self.repo_root, relative_path) if relative_path else None
             issue_description = issue.get("issue")
 
             if not file_path or not os.path.exists(file_path):
