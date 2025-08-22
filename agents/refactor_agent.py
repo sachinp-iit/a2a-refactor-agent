@@ -62,7 +62,14 @@ C# file content:
         for idx, issue in enumerate(issues):
             issue_id = f"issue_{idx}"
             relative_path = issue.get("file")
-            file_path = os.path.join(self.repo_root, relative_path) if relative_path else None
+            
+            if not relative_path:
+                file_path = None
+            elif os.path.isabs(relative_path):
+                file_path = relative_path
+            else:
+                file_path = os.path.join(self.repo_root, relative_path)
+                
             issue_description = issue.get("issue")
 
             if not file_path or not os.path.exists(file_path):
