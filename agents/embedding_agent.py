@@ -75,4 +75,24 @@ class EmbeddingAgent:
                 "column": issue.get("column", -1),
                 "severity": issue.get("severity", ""),
                 "id": rule,
-                "issue":
+                "issue": issue.get("issue") or issue.get("message", ""),
+            }
+
+            document_text = (
+                f"Issue {metadata['id']} in file {metadata['file']} line {metadata['line']}. "
+                f"Severity: {metadata['severity']}. "
+                f"Message: {metadata['issue']}"
+            )
+
+            embedding = self.model.encode([document_text])[0].tolist()
+
+            collection.add(
+                documents=[document_text],
+                metadatas=[metadata],
+                ids=[unique_key],
+                embeddings=[embedding],
+            )
+            inserted += 1
+
+        print(f"[EmbeddingAgent] Stored {inserted} new issues (duplicates skipped).")
+        return inserted
