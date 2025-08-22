@@ -1,85 +1,78 @@
-import json
+# agents/embedding_agent.py
+import os
 import uuid
-from pathlib import Path
-from chromadb import Client
-from chromadb.config import Settings
+from typing import List, Dict, Optional
 from sentence_transformers import SentenceTransformer
 
 class EmbeddingAgent:
-    def __init__(self, json_report_path: str, db_dir: str, collection_name: str = "roslynator_issues", chroma_client=None):
-        self.json_report_path = Path(json_report_path)
-        self.db_dir = Path(db_dir)
-        self.collection_name = collection_name
+    def __init__(
+        self,
+        issues: List[Dict],
+        chroma_client,
+        collection_name: str = "roslynator_issues",
+        repo_root: Optional[str] = None,
+    ):
         if chroma_client is None:
             raise ValueError("chroma_client must be provided")
+        self.issues = issues or []
         self.chroma_client = chroma_client
+        self.collection_name = collection_name
+        self.repo_root = repo_root
         self.model = SentenceTransformer("all-MiniLM-L6-v2")
 
-    def store_embeddings(self, clear_existing: bool = False):
-        """
-        Store issues from JSON report into ChromaDB using local embeddings.
-        Converts relative file paths to absolute paths.
-        Optionally clears existing issues to avoid duplicates.
-        """
-        if not self.json_report_path.exists():
-            raise FileNotFoundError(f"JSON report not found at {self.json_report_path}")
+    def _abs_path(self, file_path: str) -> str:
+        if not file_path:
+            return ""
+        if self.repo_root and not os.path.isabs(file_path):
+            return os.path.abspath(os.path.join(self.repo_root, file_path))
+        return os.path.abspath(file_path)
 
-        with open(self.json_report_path, "r", encoding="utf-8") as f:
-            issues = json.load(f)
-
-        if not issues:
-            raise ValueError("No issues found in JSON report.")
+    def store_embeddings(self, clear_existing: bool = False) -> int:
+        """
+        Store issues into ChromaDB using local embeddings.
+        - No JSON reading.
+        - Converts relative file paths to absolute using repo_root.
+        - Skips duplicates based on (ruleId/id + abs path + line).
+        """
+        if not self.issues:
+            print("[EmbeddingAgent] No issues provided.")
+            return 0
 
         if clear_existing:
-            self.chroma_client.delete_collection(name=self.collection_name)
+            try:
+                self.chroma_client.delete_collection(self.collection_name)
+            except Exception:
+                pass
 
-        collection = self.chroma_client.get_or_create_collection(name=self.collection_name)
+        collection = self.chroma_client.get_or_create_collection(self.collection_name)
 
+        # Gather existing ids to prevent duplicates
         existing_ids = set()
         if collection.count() > 0:
-            ids_resp = collection.get(include=["ids"])
-            existing_ids = set(ids_resp.get("ids", []))
-
-        # repo root = parent of analysis directory
-        repo_root = self.json_report_path.parent.parent
+            got = collection.get(include=["ids"])
+            ids_field = got.get("ids", [])
+            # Chroma can return flat or nested lists; normalize
+            for item in ids_field:
+                if isinstance(item, list):
+                    existing_ids.update(item)
+                else:
+                    existing_ids.add(item)
 
         inserted = 0
-        for issue in issues:
-            # --- Ensure globally unique key (id + file + line) ---
-            issue_id = issue.get("id") or issue.get("ruleId") or str(uuid.uuid4())
-            file_rel = issue.get("file", "unknown")
-            line_part = issue.get("line", -1)
-
-            # Resolve to absolute path
-            file_abs = str((repo_root / file_rel).resolve())
-            unique_key = f"{issue_id}:{file_abs}:{line_part}"
+        for issue in self.issues:
+            rule = issue.get("id") or issue.get("ruleId") or str(uuid.uuid4())
+            file_rel = issue.get("file", "")
+            file_abs = self._abs_path(file_rel)
+            line = issue.get("line", -1)
+            unique_key = f"{rule}:{file_abs}:{line}"
 
             if unique_key in existing_ids:
-                continue  # skip duplicate
+                continue
 
             metadata = {
                 "file": file_abs,
-                "id": issue_id,
-                "severity": issue.get("severity", "unknown"),
-                "issue": issue.get("issue") or issue.get("message", "unknown"),
-                "line": line_part,
+                "line": line,
                 "column": issue.get("column", -1),
-            }
-
-            document_text = (
-                f"Issue {metadata['id']} in file {metadata['file']} line {metadata['line']}. "
-                f"Severity: {metadata['severity']}. "
-                f"Message: {metadata['issue']}"
-            )
-
-            embedding = self.model.encode([document_text])[0].tolist()
-
-            collection.add(
-                documents=[document_text],
-                metadatas=[metadata],
-                ids=[unique_key],
-                embeddings=[embedding],
-            )
-            inserted += 1
-
-        print(f"[EmbeddingAgent] Stored {inserted} new issues (duplicates skipped).")
+                "severity": issue.get("severity", ""),
+                "id": rule,
+                "issue":
