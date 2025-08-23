@@ -1,14 +1,6 @@
 import os
-import sys
-import shutil
-import subprocess
-import json
 from chromadb import Client
 from chromadb.config import Settings
-
-# Suppress TensorFlow CUDA warnings
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-os.environ["XLA_FLAGS"] = "--xla_gpu_cuda_data_dir=/dev/null"
 
 # --- Agents imports ---
 from agents.repo_manager import RepoManager
@@ -21,7 +13,7 @@ from agents.reporting_agent import ReportingAgent
 
 # --- Globals ---
 DB_DIR = "chroma_db"
-COLLECTION_NAME = "roslynator_issues"  # Define a default collection name
+COLLECTION_NAME = "roslynator_issues"
 
 # Initialize shared Chroma client
 try:
@@ -29,13 +21,15 @@ try:
 except ValueError:
     SHARED_CHROMA_CLIENT = Client(Settings())
 
+
 def is_chromadb_ready(client, collection_name=COLLECTION_NAME) -> bool:
     try:
         col = client.get_collection(collection_name)
         return col.count() > 0
     except Exception:
         return False
-        
+
+
 def main_menu():
     repo_manager = RepoManager()
     query_agent = None
@@ -46,7 +40,7 @@ def main_menu():
         print("1. Clone GitHub repo and run Roslynator analysis")
         print("2. Query code issues by keyword")
         print("3. Show Roslynator report")
-        print("4. Run approval and auto-refactor loop")        
+        print("4. Run approval and auto-refactor loop")
         print("5. Exit")
 
         choice = input("Select an option [1-5]: ").strip()
@@ -65,34 +59,29 @@ def main_menu():
 
             roslynator_agent = RoslynatorAgent(
                 repo_path=repo_path,
-                output_dir=os.path.join(repo_path, "analysis")
+                output_dir=os.path.join(repo_path, "analysis")  # only for logs
             )
 
-            report_path = roslynator_agent.run_analysis()
-            if not report_path or not os.path.exists(report_path):
-                print("Roslynator analysis failed or no report generated.")
+            issues = roslynator_agent.run_analysis()
+            if not issues:
+                print("Roslynator analysis failed or no issues found.")
                 continue
 
             embedding_agent = EmbeddingAgent(
-                issues=report_path,
+                issues=issues,
                 chroma_client=SHARED_CHROMA_CLIENT,
                 repo_root=repo_path
             )
             embedding_agent.store_embeddings()
 
-            query_agent = QueryAgent(
-                db_dir=os.path.join(repo_path, "chroma_db"),
-                chroma_client=SHARED_CHROMA_CLIENT
-            )
+            query_agent = QueryAgent(chroma_client=SHARED_CHROMA_CLIENT)
 
             print("Clone and analysis complete.")
 
         elif choice == "2":
             if query_agent is None:
-                repo_db_dir = os.path.join(repo_path, "chroma_db") if repo_path else DB_DIR
                 if is_chromadb_ready(SHARED_CHROMA_CLIENT):
-                    query_agent = QueryAgent(db_dir=repo_db_dir, chroma_client=SHARED_CHROMA_CLIENT)
-                    repo_path = repo_path or DB_DIR
+                    query_agent = QueryAgent(chroma_client=SHARED_CHROMA_CLIENT)
                 else:
                     print("No ChromaDB data found. Please run clone and analysis first.")
                     continue
@@ -115,7 +104,6 @@ def main_menu():
             if not repo_path:
                 print("No repository analyzed yet.")
                 continue
-            # pass the shared Chroma client into ReportingAgent (do NOT pass a path string)
             reporting_agent = ReportingAgent(chroma_client=SHARED_CHROMA_CLIENT)
             reporting_agent.show_all()
 
@@ -123,19 +111,20 @@ def main_menu():
             if not repo_path:
                 print("No repository analyzed yet.")
                 continue
-        
+
             refactor_agent = RefactorAgent(
                 chroma_client=SHARED_CHROMA_CLIENT,
                 repo_root=repo_path
             )
-            refactor_agent.approval_and_refactor_loop()        
-            
+            refactor_agent.approval_and_refactor_loop()
+
         elif choice == "5":
             print("Exiting. Goodbye!")
             break
-            
+
         else:
             print("Invalid option. Please enter 1, 2, 3, 4 or 5.")
+
 
 if __name__ == "__main__":
     main_menu()
