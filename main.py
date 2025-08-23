@@ -53,43 +53,38 @@ def main_menu():
 
         if choice == "1":
             repo_url = input("Enter the GitHub repo URL to clone: ").strip()
-            
             if not repo_url:
                 print("Repository URL is required.")
                 continue
-    
+
             repo_path = repo_manager.clone_repo(repo_url)
             cs_files = repo_manager.list_csharp_files(repo_path)
-            
             if not cs_files:
                 print("No C# files found in the repository.")
                 continue
-    
+
             roslynator_agent = RoslynatorAgent(
                 repo_path=repo_path,
                 output_dir=os.path.join(repo_path, "analysis")
             )
-            
-            # run analysis → get issues list (not JSON path anymore)
-            issues = roslynator_agent.run_analysis()
+
+            report_path = roslynator_agent.run_analysis()
             if not report_path or not os.path.exists(report_path):
                 print("Roslynator analysis failed or no report generated.")
                 continue
-    
-            # store issues in ChromaDB
+
             embedding_agent = EmbeddingAgent(
-                issues=report_path,  # let the agent handle parsing
+                issues=report_path,
                 chroma_client=SHARED_CHROMA_CLIENT,
                 repo_root=repo_path
             )
             embedding_agent.store_embeddings()
-    
-            # prepare query agent bound to this repo
+
             query_agent = QueryAgent(
                 db_dir=os.path.join(repo_path, "chroma_db"),
                 chroma_client=SHARED_CHROMA_CLIENT
             )
-    
+
             print("Clone and analysis complete.")
 
         elif choice == "2":
