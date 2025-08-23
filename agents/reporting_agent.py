@@ -6,7 +6,7 @@ class ReportingAgent:
         if chroma_client is None:
             raise ValueError("chroma_client must be provided")
         # create QueryAgent with the shared chroma client
-        self.query_agent = QueryAgent(db_dir="", collection_name=collection_name, chroma_client=chroma_client)
+        self.query_agent = QueryAgent(collection_name=collection_name, chroma_client=chroma_client)
 
     def show_all(self):
         issues = self.query_agent._get_all_issues()
