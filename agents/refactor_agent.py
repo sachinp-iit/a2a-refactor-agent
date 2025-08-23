@@ -8,7 +8,7 @@ class RefactorAgent:
     def __init__(self, chroma_client, repo_root: str, collection_name: str = "roslynator_issues"):
         self.client = OpenAI()
         self.approval_agent = ApprovalAgent()
-        self.query_agent = QueryAgent(db_dir=None, collection_name=collection_name, chroma_client=chroma_client)
+        self.query_agent = QueryAgent(collection_name=collection_name, chroma_client=chroma_client)
         self.repo_root = os.path.abspath(repo_root)
         self._repo_index = None  # built lazily for robust path matching
 
