@@ -35,12 +35,10 @@ This project is intended for **educational/training purposes** under a **CC BY-N
 ## Folder Structure
 
 Multi-Agent-CSharp-Code-Refactor-with-Open-AI/
-│
 ├── LICENSE
 ├── README.md
 ├── requirements.txt
 ├── install_dotnet_roslynator.sh
-│
 ├── agents/
 │ ├── approval_agent.py
 │ ├── embedding_agent.py
@@ -48,7 +46,6 @@ Multi-Agent-CSharp-Code-Refactor-with-Open-AI/
 │ ├── refactor_agent.py
 │ ├── repo_manager.py
 │ └── roslynator_agent.py
-│
 └── main.py
 
 
