@@ -4,8 +4,7 @@ from sentence_transformers import SentenceTransformer
 from collections import Counter
 
 class QueryAgent:
-    def __init__(self, db_dir: str, collection_name: str = "roslynator_issues", chroma_client=None):
-        self.db_dir = db_dir
+    def __init__(self, collection_name: str = "roslynator_issues", chroma_client=None):
         self.collection_name = collection_name
         if chroma_client is None:
             raise ValueError("chroma_client must be provided")
