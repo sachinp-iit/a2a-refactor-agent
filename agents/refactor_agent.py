@@ -58,20 +58,20 @@ class RefactorAgent:
     def propose_fix(self, file_path: str, issue_description: str):
         with open(file_path, "r", encoding="utf-8") as f:
             code_content = f.read()
-
+    
         prompt = f"""
-You are a C# code refactoring assistant.
-The following code has an issue reported by Roslynator:
-Issue: {issue_description}
-
-Your task:
-1) Fix the issue without altering unrelated functionality.
-2) Maintain coding conventions.
-3) Output only the modified code.
-
-C# file content:
-{code_content}
-"""
+    You are a C# code refactoring assistant.
+    The following code has an issue reported by Roslynator:
+    Issue: {issue_description}
+    
+    Your task:
+    1) Fix the issue without altering unrelated functionality.
+    2) Maintain coding conventions.
+    3) Output only the modified code.
+    
+    C# file content:
+    {code_content}
+    """
         resp = self.client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
@@ -80,7 +80,16 @@ C# file content:
             ],
             temperature=0,
         )
-        return resp.choices[0].message.content
+        code = resp.choices[0].message.content
+    
+        # Strip Markdown fences if present
+        lines = code.splitlines()
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].startswith("```"):
+            lines = lines[:-1]
+    
+        return "\n".join(lines).strip()
 
     def apply_fix(self, file_path: str, fixed_code: str):
         with open(file_path, "w", encoding="utf-8") as f:
