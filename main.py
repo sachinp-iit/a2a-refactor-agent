@@ -101,9 +101,10 @@ def main_menu():
                 print(f"{i}. File: {res.get('file')}\n   Issue: {res.get('issue')}\n")
 
         elif choice == "3":
-            if not repo_path:
-                print("No repository analyzed yet.")
+            if not is_chromadb_ready(SHARED_CHROMA_CLIENT):
+                print("No ChromaDB data found. Please run clone and analysis first.")
                 continue
+        
             reporting_agent = ReportingAgent(chroma_client=SHARED_CHROMA_CLIENT)
             reporting_agent.show_all()
 
