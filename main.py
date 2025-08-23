@@ -72,13 +72,13 @@ def main_menu():
             
             # run analysis → get issues list (not JSON path anymore)
             issues = roslynator_agent.run_analysis()
-            if not issues or len(issues) == 0:
-                print("No issues found in Roslynator analysis. Skipping embedding.")
+            if not report_path or not os.path.exists(report_path):
+                print("Roslynator analysis failed or no report generated.")
                 continue
     
             # store issues in ChromaDB
             embedding_agent = EmbeddingAgent(
-                issues=issues,
+                issues=report_path,  # let the agent handle parsing
                 chroma_client=SHARED_CHROMA_CLIENT,
                 repo_root=repo_path
             )
