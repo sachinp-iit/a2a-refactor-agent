@@ -74,8 +74,7 @@ def main_menu():
             )
             embedding_agent.store_embeddings()
 
-            query_agent = QueryAgent(chroma_client=SHARED_CHROMA_CLIENT)
-
+            query_agent = QueryAgent(chroma_client=SHARED_CHROMA_CLIENT, collection_name=COLLECTION_NAME)
             print("Clone and analysis complete.")
 
         elif choice == "2":
@@ -109,8 +108,8 @@ def main_menu():
             reporting_agent.show_all()
 
         elif choice == "4":
-            if not repo_path:
-                print("No repository analyzed yet.")
+            if not is_chromadb_ready(SHARED_CHROMA_CLIENT):
+                print("No ChromaDB data found. Please run clone and analysis first.")
                 continue
 
             refactor_agent = RefactorAgent(
