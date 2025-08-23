@@ -30,7 +30,7 @@ class RoslynatorAgent:
     def run_analysis(self):
         """
         Restores NuGet packages for all .csproj/.sln files then runs Roslynator.
-        Writes a text and JSON report into output_dir and returns the JSON path (or None on fatal errors).
+        Writes a text and JSON report into output_dir and returns the issues list (or None on fatal errors).
         """
         print(f"[RoslynatorAgent] Running analysis on {self.repo_path}...")
         project_files = list(self.repo_path.rglob("*.csproj")) + list(self.repo_path.rglob("*.sln"))
@@ -79,7 +79,7 @@ class RoslynatorAgent:
         print(f"[RoslynatorAgent] Analysis stderr saved to {stderr_path}")
         print(f"[RoslynatorAgent] JSON report saved to {json_path} ({len(issues)} issues)")
 
-        return json_path
+        return issues
 
     def parse_text_report_to_json(self, report_path: Path):
         """
@@ -107,10 +107,8 @@ class RoslynatorAgent:
                         "issue": message.strip()
                     })
                 else:
-                    # attach continuation lines (indented) to last issue message when present
                     if (line.startswith(" ") or line.startswith("\t")) and issues:
                         issues[-1]["issue"] += " " + line.strip()
                     else:
-                        # ignore other non-matching lines (summaries, analyzer loads, etc.)
                         continue
         return issues
